@@ -1,0 +1,7 @@
+{
+  "name": "frameloom",
+  "description": "Collaborative vector design tool in the browser: scene graph, R-tree, CRDT sync over BroadcastChannel.",
+  "language": "TypeScript",
+  "arc_days": 14,
+  "pages": true
+}
