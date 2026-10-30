@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta
+      name="description"
+      content="Frameloom: a collaborative vector design tool that runs entirely in your browser."
+    />
+    <meta name="theme-color" content="#6c5ce7" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <title>Frameloom: collaborative vector design</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar" role="banner">
+        <a class="brand" href="./" aria-label="Frameloom home">
+          <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="9" fill="currentColor" />
+            <path
+              d="M9 9h14M9 16h9M9 23h14"
+              stroke="#fff"
+              stroke-width="3"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span>Frameloom</span>
+        </a>
+        <span class="spacer"></span>
+        <div class="group" role="group" aria-label="View controls">
+          <button id="zoom-out" class="btn" aria-label="Zoom out" title="Zoom out (−)">−</button>
+          <button
+            id="zoom-label"
+            class="btn zoom"
+            aria-label="Reset zoom to 100%"
+            title="Reset zoom (1)"
+          >
+            100%
+          </button>
+          <button id="zoom-in" class="btn" aria-label="Zoom in" title="Zoom in (+)">+</button>
+          <button id="fit" class="btn" aria-label="Zoom to fit" title="Zoom to fit (0)">Fit</button>
+        </div>
+        <button
+          id="theme"
+          class="btn"
+          aria-label="Toggle light/dark theme"
+          title="Toggle theme (D)"
+        >
+          ◐
+        </button>
+      </header>
+      <main class="stage">
+        <canvas id="canvas" aria-label="Design canvas" role="img" tabindex="0"></canvas>
+        <div id="hud" class="hud" aria-live="polite"></div>
+        <div id="hint" class="hint">
+          Drag to pan · Scroll or pinch to zoom · <kbd>0</kbd> fits the view
+        </div>
+        <div id="error" class="error" role="alert" hidden></div>
+      </main>
+    </div>
+    <noscript><p style="padding: 2rem">Frameloom needs JavaScript to run.</p></noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
