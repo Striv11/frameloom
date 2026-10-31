@@ -3,6 +3,7 @@ import { createDemoDocument, createStressDocument } from './app/demo';
 import { Camera } from './render/camera';
 import { Canvas2DRenderer, DARK, LIGHT } from './render/canvas2d';
 import type { Point } from './model/matrix';
+import { SceneIndex } from './spatial/scene-index';
 
 function $<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -17,7 +18,9 @@ function boot(): void {
     Number.isFinite(stress) && stress > 0
       ? createStressDocument(Math.min(stress, 200_000))
       : createDemoDocument();
+  const index = new SceneIndex(doc);
   const camera = new Camera();
+  let hoverName = '';
   const renderer = new Canvas2DRenderer(canvas, doc, camera);
 
   let dirty = true;
@@ -34,7 +37,7 @@ function boot(): void {
       lastFrameMs = performance.now() - t0;
       $('zoom-label').textContent = `${Math.round(camera.zoom * 100)}%`;
       $('hud').textContent =
-        `${doc.size.toLocaleString()} shapes · ${renderer.drawn.toLocaleString()} drawn · ${lastFrameMs.toFixed(1)} ms`;
+        `${doc.size.toLocaleString()} shapes · ${renderer.drawn.toLocaleString()} drawn · ${lastFrameMs.toFixed(1)} ms${hoverName ? ` · ${hoverName}` : ''}`;
     }
     requestAnimationFrame(loop);
   };
@@ -85,7 +88,15 @@ function boot(): void {
   });
   canvas.addEventListener('pointermove', (e) => {
     const prev = pointers.get(e.pointerId);
-    if (!prev) return;
+    if (!prev) {
+      const id = index.hitTest(camera.screenToWorld(local(e)), 2 / camera.zoom);
+      const name = id ? doc.get(id).name || doc.get(id).type : '';
+      if (name !== hoverName) {
+        hoverName = name;
+        invalidate();
+      }
+      return;
+    }
     const cur = local(e);
     if (pointers.size === 1) {
       camera.panBy(cur.x - prev.x, cur.y - prev.y);

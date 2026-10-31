@@ -35,12 +35,14 @@ Everything is original code with no third-party runtime dependencies.
  (planned)   (planned)     src/model          src/render/canvas2d
                               │  ▲
                               ▼  │
-                      spatial index, CRDT, IndexedDB   (planned)
+                      spatial index (src/spatial), CRDT, IndexedDB   (CRDT/IDB planned)
 ```
 
 - `src/model/matrix.ts`: 2D affine math (`[a b c d e f]`), bounds, rect helpers.
 - `src/model/types.ts`: node types (frame, group, rect, ellipse, line, text).
 - `src/model/document.ts`: `SceneDocument`, a flat id → node table with parent/child links. Invariants: the root can't be removed or moved; only frames/groups hold children; reparenting can't create cycles; ids are unique. A node's local transform is `translate(x, y) · rotate(rotation)` about its top-left corner.
+- `src/spatial/rtree.ts`: from-scratch R-tree (STR bulk load, incremental insert/remove/update, rect and point queries, `validate()` for invariants).
+- `src/spatial/scene-index.ts`: indexes world bounds of a `SceneDocument`; `hitTest` returns the topmost visible, unlocked node under a point, honoring rotation and ellipse shape.
 - `src/render/camera.ts`: world ↔ screen mapping with cursor-anchored zoom.
 - `src/render/canvas2d.ts`: paint-order traversal with view-frustum culling, DPR-aware.
 
@@ -59,7 +61,7 @@ Add `?stress=10000` to the URL to load 10,000 random shapes.
 
 ## Demo
 
-Open the live link (or `npm run dev`). Drag to pan, scroll to pan, Ctrl/⌘+scroll or pinch to zoom, `0` to fit, `1` for 100%, `D` toggles light/dark. The HUD shows shape count, drawn shapes after culling, and frame time. Status: **Day 1 of 14**: viewer only; editing tools land in the following days.
+Open the live link (or `npm run dev`). Drag to pan, scroll to pan, Ctrl/⌘+scroll or pinch to zoom, `0` to fit, `1` for 100%, `D` toggles light/dark. The HUD shows shape count, drawn shapes after culling, and frame time. Status: **Day 2 of 14**: viewer with hover hit-testing only; editing tools land in the following days.
 
 ## Design decisions & trade-offs
 
@@ -73,7 +75,8 @@ Open the live link (or `npm run dev`). Drag to pan, scroll to pan, Ctrl/⌘+scro
 See [PLAN.md](PLAN.md) for the 14-day plan with acceptance criteria.
 
 - [x] Day 1: scaffold, document model, pan/zoom canvas
-- [ ] R-tree, selection, transform and shape tools
+- [x] Day 2: R-tree spatial index and hit-testing (hover name in HUD)
+- [ ] Selection, transform and shape tools
 - [ ] Undo/redo, pen tool, text, layers, inspector
 - [ ] Grouping, frames, snapping
 - [ ] CRDT, multi-tab collaboration, IndexedDB
