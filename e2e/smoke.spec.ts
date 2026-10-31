@@ -1,10 +1,49 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 interface Hook {
-  __frameloom: { camera: { zoom: number; panX: number } };
+  __frameloom: {
+    camera: {
+      zoom: number;
+      panX: number;
+      worldToScreen(p: { x: number; y: number }): { x: number; y: number };
+    };
+    doc: {
+      paintOrder(): Iterable<{
+        id: string;
+        name: string;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        rotation: number;
+      }>;
+    };
+    tool: { selection: { ids: string[] } };
+  };
 }
 
-test('renders the demo document and supports zoom and pan', async ({ page }) => {
+async function node(page: Page, name: string) {
+  return page.evaluate((n) => {
+    const h = (window as unknown as Hook).__frameloom;
+    for (const x of h.doc.paintOrder()) if (x.name === n) return { ...x };
+    throw new Error(`no node ${n}`);
+  }, name);
+}
+
+/** Screen position (page coordinates) of a world point. */
+async function screenOf(page: Page, wx: number, wy: number) {
+  const s = await page.evaluate(
+    ([x, y]) => (window as unknown as Hook).__frameloom.camera.worldToScreen({ x: x!, y: y! }),
+    [wx, wy],
+  );
+  const box = (await page.locator('#canvas').boundingBox())!;
+  return { x: box.x + s.x, y: box.y + s.y };
+}
+
+const selected = (page: Page) =>
+  page.evaluate(() => (window as unknown as Hook).__frameloom.tool.selection.ids.length);
+
+test('renders the demo document and supports zoom and space-drag pan', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#canvas')).toBeVisible();
   await expect(page.locator('#hud')).toContainText('shapes');
@@ -19,11 +58,75 @@ test('renders the demo document and supports zoom and pan', async ({ page }) => 
     page.evaluate(() => (window as unknown as Hook).__frameloom.camera.panX as number);
   const p0 = await pan();
   const box = (await page.locator('#canvas').boundingBox())!;
+  await page.keyboard.down('Space');
   await page.mouse.move(box.x + 200, box.y + 200);
   await page.mouse.down();
   await page.mouse.move(box.x + 260, box.y + 230, { steps: 4 });
   await page.mouse.up();
+  await page.keyboard.up('Space');
   expect(await pan()).toBeCloseTo(p0 + 60, 0);
+  expect(await selected(page)).toBe(0);
+});
+
+test('click selects, drag moves, shift adds, escape clears', async ({ page }) => {
+  await page.goto('/');
+  const cover = await node(page, 'Cover');
+  // Cover is a child of the Card frame at (80, 80), so its world origin is (80, 80).
+  const p = await screenOf(page, 80 + 40, 80 + 40);
+  await page.mouse.click(p.x, p.y);
+  expect(await selected(page)).toBe(1);
+  await expect(page.locator('#hud')).toContainText('1 selected');
+
+  await page.mouse.move(p.x, p.y);
+  await page.mouse.down();
+  await page.mouse.move(p.x + 40, p.y + 20, { steps: 5 });
+  await page.mouse.up();
+  const moved = await node(page, 'Cover');
+  const zoom = await page.evaluate(() => (window as unknown as Hook).__frameloom.camera.zoom);
+  expect(moved.x).toBeCloseTo(cover.x + 40 / zoom, 1);
+  expect(moved.y).toBeCloseTo(cover.y + 20 / zoom, 1);
+
+  const other = await screenOf(page, 560 + 100, 280 + 60); // inside "Tilted"
+  await page.keyboard.down('Shift');
+  await page.mouse.click(other.x, other.y);
+  await page.keyboard.up('Shift');
+  expect(await selected(page)).toBe(2);
+
+  await page.keyboard.press('Escape');
+  expect(await selected(page)).toBe(0);
+});
+
+test('marquee selects shapes and the south-east handle resizes', async ({ page }) => {
+  await page.goto('/');
+  const from = await screenOf(page, 500, 80);
+  const to = await screenOf(page, 880, 240);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 6 });
+  await page.mouse.up();
+  expect(await selected(page)).toBe(1); // the Badges group resolves to one node
+
+  await page.keyboard.press('Escape');
+  const tilted = await screenOf(page, 560 + 100, 280 + 60);
+  await page.mouse.click(tilted.x, tilted.y);
+  expect(await selected(page)).toBe(1);
+  const before = await node(page, 'Tilted');
+  // Drag the south-east corner outward along the box's own axes.
+  const c = Math.cos(before.rotation);
+  const s = Math.sin(before.rotation);
+  const se = await screenOf(
+    page,
+    before.x + before.width * c - before.height * s,
+    before.y + before.width * s + before.height * c,
+  );
+  await page.mouse.move(se.x, se.y);
+  await page.mouse.down();
+  await page.mouse.move(se.x + 30, se.y + 30, { steps: 5 });
+  await page.mouse.up();
+  const after = await node(page, 'Tilted');
+  expect(after.width).toBeGreaterThan(before.width);
+  expect(after.height).toBeGreaterThan(before.height);
+  expect(after.rotation).toBeCloseTo(before.rotation, 9);
 });
 
 test('theme toggle persists', async ({ page }) => {

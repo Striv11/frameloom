@@ -7,16 +7,32 @@ import type { Camera } from './camera';
 export interface Theme {
   background: string;
   grid: string;
+  /** Selection outlines, handles and the marquee. */
+  accent: string;
+  /** Fill of handle squares. */
+  handleFill: string;
 }
 
-export const LIGHT: Theme = { background: '#f1f2f4', grid: 'rgba(20,24,40,0.07)' };
-export const DARK: Theme = { background: '#16181d', grid: 'rgba(255,255,255,0.06)' };
+export const LIGHT: Theme = {
+  background: '#f1f2f4',
+  grid: 'rgba(20,24,40,0.07)',
+  accent: '#5b4bd6',
+  handleFill: '#ffffff',
+};
+export const DARK: Theme = {
+  background: '#16181d',
+  grid: 'rgba(255,255,255,0.06)',
+  accent: '#9a8cff',
+  handleFill: '#1f2229',
+};
 
 /** Canvas2D renderer. Draws the scene graph in paint order with per-frame culling. */
 export class Canvas2DRenderer {
   private readonly ctx: CanvasRenderingContext2D;
   /** Number of nodes actually drawn last frame (useful for the HUD and benchmarks). */
   drawn = 0;
+  /** Optional screen-space overlay (selection, handles) painted after the scene. */
+  overlay: ((ctx: CanvasRenderingContext2D, theme: Theme) => void) | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -61,6 +77,11 @@ export class Canvas2DRenderer {
     const base = multiply([dpr, 0, 0, dpr, 0, 0], camera.matrix);
     this.drawn = 0;
     for (const id of this.doc.find(ROOT_ID)?.children ?? []) this.drawNode(id, base, view, 1);
+    if (this.overlay) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.globalAlpha = 1;
+      this.overlay(ctx, this.theme);
+    }
   }
 
   private drawNode(id: NodeId, parentM: Matrix, view: Rect, parentAlpha: number): void {

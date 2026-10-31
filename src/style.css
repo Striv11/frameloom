@@ -109,6 +109,9 @@ body {
   height: 100%;
   display: block;
   touch-action: none;
+  cursor: default;
+}
+#canvas.space {
   cursor: grab;
 }
 #canvas.panning {

@@ -3,7 +3,10 @@ import { createDemoDocument, createStressDocument } from './app/demo';
 import { Camera } from './render/camera';
 import { Canvas2DRenderer, DARK, LIGHT } from './render/canvas2d';
 import type { Point } from './model/matrix';
+import { drawOverlay } from './render/overlay';
 import { SceneIndex } from './spatial/scene-index';
+import { selectionFrame } from './tools/handles';
+import { SelectTool } from './tools/select-tool';
 
 function $<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -20,12 +23,30 @@ function boot(): void {
       : createDemoDocument();
   const index = new SceneIndex(doc);
   const camera = new Camera();
-  let hoverName = '';
   const renderer = new Canvas2DRenderer(canvas, doc, camera);
 
   let dirty = true;
   const invalidate = (): void => {
     dirty = true;
+  };
+  const tool = new SelectTool(doc, index, camera, invalidate);
+  renderer.overlay = (ctx, theme) => {
+    const ids = tool.selection.ids.filter((id) => doc.has(id));
+    drawOverlay(ctx, theme, camera, {
+      frame: tool.frame(),
+      outlines: ids.length > 1 ? ids.flatMap((id) => selectionFrame(doc, [id]) ?? []) : [],
+      marquee: tool.marquee,
+      hover:
+        tool.hover && !tool.dragging && !tool.selection.has(tool.hover) && doc.has(tool.hover)
+          ? selectionFrame(doc, [tool.hover])
+          : null,
+    });
+  };
+  const hudSuffix = (): string => {
+    const n = tool.selection.size;
+    if (n > 0) return ` · ${n} selected`;
+    const hover = tool.hover && doc.has(tool.hover) ? doc.get(tool.hover) : null;
+    return hover ? ` · ${hover.name || hover.type}` : '';
   };
   let lastFrameMs = 0;
   const loop = (): void => {
@@ -37,7 +58,7 @@ function boot(): void {
       lastFrameMs = performance.now() - t0;
       $('zoom-label').textContent = `${Math.round(camera.zoom * 100)}%`;
       $('hud').textContent =
-        `${doc.size.toLocaleString()} shapes · ${renderer.drawn.toLocaleString()} drawn · ${lastFrameMs.toFixed(1)} ms${hoverName ? ` · ${hoverName}` : ''}`;
+        `${doc.size.toLocaleString()} shapes · ${renderer.drawn.toLocaleString()} drawn · ${lastFrameMs.toFixed(1)} ms${hudSuffix()}`;
     }
     requestAnimationFrame(loop);
   };
@@ -65,8 +86,12 @@ function boot(): void {
     invalidate();
   }
 
-  // --- Pointer input: one pointer pans, two pointers pinch-zoom. ---
+  // --- Pointer input ---
+  // Primary button drives the select tool. Middle button or Space+drag pans;
+  // two pointers pinch-zoom (and pan).
   const pointers = new Map<number, Point>();
+  let panning = false;
+  let spaceDown = false;
   let pinchDist = 0;
   const local = (e: PointerEvent | WheelEvent): Point => {
     const r = canvas.getBoundingClientRect();
@@ -79,27 +104,31 @@ function boot(): void {
       mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
     };
   };
+  const mods = (e: PointerEvent): { shift: boolean } => ({ shift: e.shiftKey });
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, local(e));
-    canvas.classList.add('panning');
-    if (pointers.size === 2) pinchDist = pinchState().dist;
     $('hint').classList.add('hidden');
+    if (pointers.size === 2) {
+      tool.cancel();
+      panning = true;
+      pinchDist = pinchState().dist;
+    } else if (pointers.size === 1) {
+      panning = e.button === 1 || spaceDown;
+      if (panning) canvas.classList.add('panning');
+      else if (e.button === 0) tool.pointerDown(local(e), mods(e));
+    }
   });
   canvas.addEventListener('pointermove', (e) => {
     const prev = pointers.get(e.pointerId);
     if (!prev) {
-      const id = index.hitTest(camera.screenToWorld(local(e)), 2 / camera.zoom);
-      const name = id ? doc.get(id).name || doc.get(id).type : '';
-      if (name !== hoverName) {
-        hoverName = name;
-        invalidate();
-      }
+      tool.pointerMove(local(e), mods(e));
       return;
     }
     const cur = local(e);
     if (pointers.size === 1) {
-      camera.panBy(cur.x - prev.x, cur.y - prev.y);
+      if (panning) camera.panBy(cur.x - prev.x, cur.y - prev.y);
+      else tool.pointerMove(cur, mods(e));
       pointers.set(e.pointerId, cur);
     } else if (pointers.size === 2) {
       const before = pinchState();
@@ -112,12 +141,19 @@ function boot(): void {
     invalidate();
   });
   const endPointer = (e: PointerEvent): void => {
-    pointers.delete(e.pointerId);
-    if (pointers.size === 0) canvas.classList.remove('panning');
+    if (!pointers.delete(e.pointerId)) return;
+    if (pointers.size === 0) {
+      tool.pointerUp();
+      panning = false;
+      canvas.classList.remove('panning');
+    }
     if (pointers.size === 1) pinchDist = 0;
   };
   canvas.addEventListener('pointerup', endPointer);
-  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('pointercancel', (e) => {
+    tool.cancel();
+    endPointer(e);
+  });
 
   // Wheel: ctrl/cmd (and trackpad pinch) zooms, otherwise pans.
   canvas.addEventListener(
@@ -143,9 +179,28 @@ function boot(): void {
   $('theme').addEventListener('click', () =>
     setTheme(document.documentElement.dataset['theme'] !== 'dark'),
   );
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+      spaceDown = false;
+      canvas.classList.remove('space');
+    }
+  });
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code === 'Space') {
+      spaceDown = true;
+      canvas.classList.add('space');
+      e.preventDefault();
+      return;
+    }
     switch (e.key) {
+      case 'Escape':
+        if (tool.dragging) tool.cancel();
+        else {
+          tool.selection.clear();
+          invalidate();
+        }
+        break;
       case '0':
         fit();
         break;
@@ -178,6 +233,8 @@ function boot(): void {
     doc,
     camera,
     renderer,
+    index,
+    tool,
     invalidate,
   };
 }
