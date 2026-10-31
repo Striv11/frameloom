@@ -18,3 +18,13 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Tests: property tests vs. brute force on 10k shapes with 3000 random insert/remove/update steps (3 seeds), invariants, empty/duplicate cases, a hit-test median-time check (<0.1 ms), and scene-index tests for rotation, ellipses, locks, nesting and refresh. 40 tests total.
 - Learned: touching-inclusive intersection must be used consistently in the tree and brute force, or edge cases diverge.
 - Next (Day 3): selection and transform tools (click/shift/marquee, move/resize/rotate handles) built on `SceneIndex`. The index needs a cheaper incremental refresh once nodes move per frame.
+
+## 2026-10-31 — Day 3 (selection and transform)
+
+- Added `src/tools/`: pure transform math (`movePatch`, `resizePatch`, `rotatePatch`), `Selection` + group-aware picking + marquee, selection frame/handles, and `SelectTool`, a DOM-free pointer state machine (click, shift-click, marquee, move, 8 resize handles, rotate handle, Esc to cancel). `src/render/overlay.ts` paints outlines, handles and the marquee through a new renderer `overlay` hook.
+- Pan moved to Space+drag / middle-drag because the primary drag now selects; two-finger pinch still pans and zooms (and cancels any tool drag).
+- Key idea: resize maps the pointer into the node's _starting local frame_, so no per-rotation special cases are needed — the opposite corner stays fixed under any node or parent rotation. Rotation keeps the center fixed and snaps the _absolute_ rotation.
+- Tests: 31 new unit tests (property test over 400 random rotated nodes/parents for resize invariants, rotation about center against the document world matrix, move under a rotated parent, group/frame picking, marquee rules, handle placement) and 2 new Playwright flows (select/move/shift/escape; marquee + resize of the rotated shape). 71 unit tests total.
+- Learned: the pointer event delta must be taken from drag-start snapshots, not accumulated, or cancel and rotated-parent moves drift.
+- Limits, on purpose: handle-resize is single-node only; lines/groups don't resize (needs endpoint editing / child scaling); no snapping yet (Day 9).
+- Next (Day 4): shape creation tools (R/O/L/V shortcuts, drag-to-create, Shift constrain) reusing `SelectTool`'s drag machinery; e2e asserts document state.
