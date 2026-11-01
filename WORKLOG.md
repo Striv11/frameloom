@@ -28,3 +28,12 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: the pointer event delta must be taken from drag-start snapshots, not accumulated, or cancel and rotated-parent moves drift.
 - Limits, on purpose: handle-resize is single-node only; lines/groups don't resize (needs endpoint editing / child scaling); no snapping yet (Day 9).
 - Next (Day 4): shape creation tools (R/O/L/V shortcuts, drag-to-create, Shift constrain) reusing `SelectTool`'s drag machinery; e2e asserts document state.
+
+## 2026-11-01 — Day 4 (shape creation tools)
+
+- Added `src/tools/create-tool.ts`: `CreateTool` (DOM-free) creates a rect, ellipse or line live while dragging, and `shapeBox` does the pure geometry (normalised boxes, Shift = square or 45° line snap, lines keep signed width/height). Clicks without a real drag create nothing; Esc removes the in-progress shape.
+- New shapes are parented to the topmost visible, unlocked, un-rotated frame under the pointer (start point converted into the frame's local space), else the root. Rotated frames are skipped on purpose: with no scale in the model, parenting there would need a compensating rotation, which can come with reparenting on Day 8.
+- Wired into the viewer: toolbar buttons with `aria-pressed`, V/R/O/L shortcuts, crosshair cursor, Esc returns to Select, pinch cancels a creation drag. After creating, the shape is selected and the tool reverts to Select.
+- Tests: 14 new unit tests (geometry, parenting under nested frames, rotated-frame fallback, zoom/pan, live display, cancel, index consistency) and a Playwright flow drawing all three shapes plus Shift and Escape. 85 unit tests, 5 e2e pass.
+- Learned: `doc.size` excludes the root; the index is rebuilt on create/discard because it has no incremental add/remove yet — fine for single shapes, to be revisited with undo ops on Day 5.
+- Next (Day 5): operation log with invertible ops and undo/redo (creation and transforms become ops, drags coalesce).

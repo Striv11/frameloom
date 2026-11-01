@@ -46,6 +46,7 @@ Everything is original code with no third-party runtime dependencies.
 - `src/tools/transform.ts`: pure move/resize/rotate math. Resize maps the pointer into the node's starting local frame, so the opposite edge stays fixed for any rotation and any rotated parent; rotate sweeps the pointer angle around the node's center and keeps the center fixed; Shift keeps aspect (corners) or snaps to 15°.
 - `src/tools/selection.ts`: `Selection`, group-aware picking (groups select as a unit, frame children directly) and marquee selection (frames must be fully enclosed).
 - `src/tools/handles.ts` / `select-tool.ts`: selection frame and 8+1 handles (single node), union box for multi-select (move only); `SelectTool` is a DOM-free pointer state machine (click, shift-click, marquee, move, resize, rotate, cancel).
+- `src/tools/create-tool.ts`: `CreateTool` (DOM-free) drag-to-create for rect/ellipse/line. The shape appears live, is parented to the topmost un-rotated frame under the pointer (positions converted to that frame's local space) and is discarded on a click without drag or on Esc. `shapeBox` holds the pure geometry: Shift = square, or 45° line snapping.
 - `src/render/overlay.ts`: screen-space selection, hover, handles and marquee painted after the scene.
 - `src/render/camera.ts`: world ↔ screen mapping with cursor-anchored zoom.
 - `src/render/canvas2d.ts`: paint-order traversal with view-frustum culling, DPR-aware.
@@ -65,7 +66,7 @@ Add `?stress=10000` to the URL to load 10,000 random shapes.
 
 ## Demo
 
-Open the live link (or `npm run dev`). Click to select, Shift-click to add/remove, drag empty space for a marquee, drag a selection to move it, use the square handles to resize and the round handle to rotate (Shift = keep aspect / snap 15°), `Esc` cancels a drag or clears the selection. Hold Space (or middle-drag) to pan, scroll to pan, Ctrl/⌘+scroll or pinch to zoom, `0` to fit, `1` for 100%, `D` toggles light/dark. The HUD shows shape count, drawn shapes after culling, and frame time. Status: **Day 3 of 14**: selection, move, resize and rotate work on existing shapes; creation tools land next. Resizing by handle is single-node only (lines and groups can be moved and rotated, not resized, until line endpoints / group scaling exist).
+Open the live link (or `npm run dev`). Click to select, Shift-click to add/remove, drag empty space for a marquee, drag a selection to move it, use the square handles to resize and the round handle to rotate (Shift = keep aspect / snap 15°), `Esc` cancels a drag or clears the selection. Hold Space (or middle-drag) to pan, scroll to pan, Ctrl/⌘+scroll or pinch to zoom, `0` to fit, `1` for 100%, `D` toggles light/dark. The HUD shows shape count, drawn shapes after culling, and frame time. Status: **Day 4 of 14**: select/move/resize/rotate plus creation tools. Press `V` select, `R` rectangle, `O` ellipse, `L` line (or use the toolbar), drag to draw, hold Shift for a square / 45° line, `Esc` cancels; the new shape is selected and the tool returns to Select. Resizing by handle is single-node only (lines and groups can be moved and rotated, not resized, until line endpoints / group scaling exist).
 
 ## Design decisions & trade-offs
 
@@ -81,7 +82,7 @@ See [PLAN.md](PLAN.md) for the 14-day plan with acceptance criteria.
 - [x] Day 1: scaffold, document model, pan/zoom canvas
 - [x] Day 2: R-tree spatial index and hit-testing (hover name in HUD)
 - [x] Day 3: selection and transform tools (move, resize, rotate)
-- [ ] Shape creation tools
+- [x] Shape creation tools
 - [ ] Undo/redo, pen tool, text, layers, inspector
 - [ ] Grouping, frames, snapping
 - [ ] CRDT, multi-tab collaboration, IndexedDB
