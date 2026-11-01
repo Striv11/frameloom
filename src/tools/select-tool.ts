@@ -1,4 +1,5 @@
 import type { SceneDocument } from '../model/document';
+import type { History, Op } from '../model/history';
 import { IDENTITY, type Matrix, type Point, type Rect } from '../model/matrix';
 import type { NodeId } from '../model/types';
 import type { Camera } from '../render/camera';
@@ -41,6 +42,7 @@ export class SelectTool {
     private readonly index: SceneIndex,
     private readonly camera: Camera,
     private readonly onChange: () => void = () => undefined,
+    private readonly history: History | null = null,
   ) {}
 
   get dragging(): boolean {
@@ -148,7 +150,9 @@ export class SelectTool {
   }
 
   pointerUp(): void {
-    if (!this.drag) return;
+    const drag = this.drag;
+    if (!drag) return;
+    this.commit(drag);
     this.drag = null;
     this.marquee = null;
     this.onChange();
@@ -162,6 +166,32 @@ export class SelectTool {
     else if (drag.kind === 'resize' || drag.kind === 'rotate')
       this.apply(drag.item.id, drag.item.box);
     this.pointerUp();
+  }
+
+  /** Records a finished move/resize/rotate as one undo step (if anything changed). */
+  private commit(drag: Drag): void {
+    if (!this.history || drag.kind === 'marquee') return;
+    const items = drag.kind === 'move' ? drag.items : [drag.item];
+    const redo: Op[] = [];
+    const undo: Op[] = [];
+    for (const s of items) {
+      const n = this.doc.find(s.id);
+      if (!n) continue;
+      const after: Partial<Box> = {};
+      const before: Partial<Box> = {};
+      for (const k of ['x', 'y', 'width', 'height', 'rotation'] as const) {
+        if (n[k] !== s.box[k]) {
+          after[k] = n[k];
+          before[k] = s.box[k];
+        }
+      }
+      if (Object.keys(after).length === 0) continue;
+      redo.push({ kind: 'update', id: s.id, patch: after });
+      undo.push({ kind: 'update', id: s.id, patch: before });
+    }
+    if (redo.length === 0) return;
+    const label = drag.kind === 'move' ? 'Move' : drag.kind === 'resize' ? 'Resize' : 'Rotate';
+    this.history.record(label, { kind: 'batch', ops: redo }, { kind: 'batch', ops: undo });
   }
 
   private snapshot(id: NodeId): Snapshot {

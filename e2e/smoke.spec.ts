@@ -199,3 +199,39 @@ test('creation tools draw rect, ellipse and line, constrain with Shift, cancel w
   await page.mouse.up();
   expect(await count()).toBe(before + 3);
 });
+
+test('undo/redo reverts a drawn shape and a move via keyboard and buttons', async ({ page }) => {
+  await page.goto('/');
+  const count = () =>
+    page.evaluate(() => [...(window as unknown as Hook).__frameloom.doc.paintOrder()].length);
+  const before = await count();
+  await expect(page.locator('#undo')).toBeDisabled();
+  const a = await screenOf(page, 450, 250);
+  const b = await screenOf(page, 540, 300);
+
+  await page.keyboard.press('r');
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 4 });
+  await page.mouse.up();
+  expect(await count()).toBe(before + 1);
+  await expect(page.locator('#undo')).toBeEnabled();
+
+  // Move the new (selected) shape.
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  await page.mouse.move(mid.x, mid.y);
+  await page.mouse.down();
+  await page.mouse.move(mid.x + 40, mid.y + 30, { steps: 5 });
+  await page.mouse.up();
+
+  await page.keyboard.press('Control+z'); // undo move
+  expect(await count()).toBe(before + 1);
+  await page.keyboard.press('Control+z'); // undo create
+  expect(await count()).toBe(before);
+  await expect(page.locator('#undo')).toBeDisabled();
+  expect(await selected(page)).toBe(0);
+  await page.keyboard.press('Control+Shift+z');
+  expect(await count()).toBe(before + 1);
+  await page.locator('#redo').click();
+  await expect(page.locator('#redo')).toBeDisabled();
+});

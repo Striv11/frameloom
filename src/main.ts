@@ -4,6 +4,7 @@ import { Camera } from './render/camera';
 import { Canvas2DRenderer, DARK, LIGHT } from './render/canvas2d';
 import type { Point } from './model/matrix';
 import { drawOverlay } from './render/overlay';
+import { History } from './model/history';
 import { SceneIndex } from './spatial/scene-index';
 import { selectionFrame } from './tools/handles';
 import { CreateTool, TOOL_SHORTCUTS } from './tools/create-tool';
@@ -23,6 +24,9 @@ function boot(): void {
       ? createStressDocument(Math.min(stress, 200_000))
       : createDemoDocument();
   const index = new SceneIndex(doc);
+  const history = new History(doc, 500, () => {
+    updateHistoryButtons();
+  });
   const camera = new Camera();
   const renderer = new Canvas2DRenderer(canvas, doc, camera);
 
@@ -48,6 +52,19 @@ function boot(): void {
     canvas.classList.toggle('creating', name !== 'select');
     invalidate();
   };
+  function updateHistoryButtons(): void {
+    const u = document.getElementById('undo') as HTMLButtonElement | null;
+    const r = document.getElementById('redo') as HTMLButtonElement | null;
+    if (u) u.disabled = !history.canUndo;
+    if (r) r.disabled = !history.canRedo;
+  }
+  const stepHistory = (dir: 'undo' | 'redo'): void => {
+    if (create.dragging || tool.dragging) return;
+    if (!history[dir]()) return;
+    index.rebuild();
+    tool.selection.prune(doc);
+    invalidate();
+  };
   const create = new CreateTool(
     doc,
     index,
@@ -57,9 +74,10 @@ function boot(): void {
       setTool('select');
     },
     invalidate,
+    history,
   );
   // The overlay and pointer code talk to whichever tool is active.
-  const select = new SelectTool(doc, index, camera, invalidate);
+  const select = new SelectTool(doc, index, camera, invalidate, history);
   const tool = select;
   renderer.overlay = (ctx, theme) => {
     const ids = tool.selection.ids.filter((id) => doc.has(id));
@@ -215,6 +233,8 @@ function boot(): void {
   });
   for (const t of ['select', 'rect', 'ellipse', 'line'] as const)
     $(`tool-${t}`).addEventListener('click', () => setTool(t));
+  $('undo').addEventListener('click', () => stepHistory('undo'));
+  $('redo').addEventListener('click', () => stepHistory('redo'));
   $('fit').addEventListener('click', fit);
   $('theme').addEventListener('click', () =>
     setTheme(document.documentElement.dataset['theme'] !== 'dark'),
@@ -226,6 +246,14 @@ function boot(): void {
     }
   });
   window.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === 'z') stepHistory(e.shiftKey ? 'redo' : 'undo');
+      else if (k === 'y') stepHistory('redo');
+      else return;
+      e.preventDefault();
+      return;
+    }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.code === 'Space') {
       spaceDown = true;
@@ -283,6 +311,8 @@ function boot(): void {
     index,
     tool,
     create,
+    history,
+    stepHistory,
     setTool,
     invalidate,
   };

@@ -178,3 +178,8 @@ kbd {
 #canvas.creating {
   cursor: crosshair;
 }
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

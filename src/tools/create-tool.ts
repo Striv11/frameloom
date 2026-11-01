@@ -1,4 +1,5 @@
 import { ROOT_ID, type SceneDocument } from '../model/document';
+import { snapshotSubtree, type History } from '../model/history';
 import { applyToPoint, invert, type Point } from '../model/matrix';
 import type { NodeId } from '../model/types';
 import type { Camera } from '../render/camera';
@@ -78,6 +79,7 @@ export class CreateTool {
     /** Called with the created id when a shape is committed. */
     private readonly onCreate: (id: NodeId) => void = () => undefined,
     private readonly onChange: () => void = () => undefined,
+    private readonly history: History | null = null,
   ) {}
 
   kind: ShapeKind = 'rect';
@@ -131,6 +133,10 @@ export class CreateTool {
       this.discard(drag.id);
       return null;
     }
+    this.history?.record(`Create ${this.kind}`, snapshotSubtree(this.doc, drag.id), {
+      kind: 'remove',
+      id: drag.id,
+    });
     this.onCreate(drag.id);
     this.onChange();
     return drag.id;
