@@ -37,3 +37,12 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Tests: 14 new unit tests (geometry, parenting under nested frames, rotated-frame fallback, zoom/pan, live display, cancel, index consistency) and a Playwright flow drawing all three shapes plus Shift and Escape. 85 unit tests, 5 e2e pass.
 - Learned: `doc.size` excludes the root; the index is rebuilt on create/discard because it has no incremental add/remove yet — fine for single shapes, to be revisited with undo ops on Day 5.
 - Next (Day 5): operation log with invertible ops and undo/redo (creation and transforms become ops, drags coalesce).
+
+## 2026-11-01 — Day 5 (operation log, undo/redo)
+
+- Added `src/model/history.ts`: `Op` = add (subtree snapshot) / remove / update / reparent / batch. `applyOp` returns the exact inverse of whatever it ran (update captures old values of touched keys only; remove snapshots the subtree with sibling indexes), so undo is generic. `History` has undo/redo stacks, a size limit and key-based coalescing that is sealed by any undo/redo.
+- Tools keep mutating live for responsiveness; on pointer-up `SelectTool` records one batch of before/after patches (nothing if nothing changed, so clicks, marquees and cancelled drags leave no history) and `CreateTool` records an add/remove pair. Wired Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y and undo/redo toolbar buttons; after a step the index is rebuilt and the selection pruned.
+- Tests: 13 new unit tests incl. a property test (5 seeds × 300 random add/update/remove/reparent ops with interleaved undo/redo: undo-all equals the original, redo-all equals the final state) and one Playwright flow. 98 unit tests, 6 e2e.
+- Learned: recording the pre/post patches at gesture end is simpler and cheaper than routing every mid-drag update through history; the live path stays untouched.
+- Limits: redo of coalesced batches grows with repeated keyed entries (no keyed callers yet; keyboard nudges will use it); the index is still rebuilt wholesale after undo.
+- Next (Day 6): pen tool and bezier path node (cubic segments, exact bounds, hit-testing).
