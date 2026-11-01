@@ -136,3 +136,66 @@ test('theme toggle persists', async ({ page }) => {
   const after = await page.evaluate(() => document.documentElement.dataset['theme']);
   expect(after).not.toBe(before);
 });
+
+test('creation tools draw rect, ellipse and line, constrain with Shift, cancel with Escape', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const count = () =>
+    page.evaluate(() => {
+      return [...(window as unknown as Hook).__frameloom.doc.paintOrder()].length;
+    });
+  const last = () =>
+    page.evaluate(() => {
+      let l: unknown;
+      for (const x of (window as unknown as Hook).__frameloom.doc.paintOrder()) l = x;
+      return { ...(l as Record<string, unknown>) } as {
+        type: string;
+        width: number;
+        height: number;
+      };
+    });
+  const before = await count();
+  // Empty canvas area in world space, left of the demo content.
+  const a = await screenOf(page, 450, 250);
+  const b = await screenOf(page, 540, 300);
+
+  await page.keyboard.press('r');
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 4 });
+  await page.mouse.up();
+  expect(await count()).toBe(before + 1);
+  const rect = await last();
+  expect(rect.type).toBe('rect');
+  expect(rect.width).toBeCloseTo(90, 0);
+  expect(rect.height).toBeCloseTo(50, 0);
+  expect(await selected(page)).toBe(1);
+
+  await page.keyboard.press('o');
+  await page.keyboard.down('Shift');
+  await page.mouse.move(a.x, a.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y + 60, { steps: 4 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  const ell = await last();
+  expect(ell.type).toBe('ellipse');
+  expect(ell.width).toBeCloseTo(ell.height, 3);
+
+  await page.keyboard.press('l');
+  await page.mouse.move(a.x, a.y + 120);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y + 120, { steps: 4 });
+  await page.mouse.up();
+  expect((await last()).type).toBe('line');
+  expect(await count()).toBe(before + 3);
+
+  await page.keyboard.press('r');
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x, b.y, { steps: 3 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  expect(await count()).toBe(before + 3);
+});

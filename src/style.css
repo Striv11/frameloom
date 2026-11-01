@@ -170,3 +170,11 @@ kbd {
     transition: none;
   }
 }
+
+.btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+#canvas.creating {
+  cursor: crosshair;
+}

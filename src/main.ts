@@ -6,6 +6,7 @@ import type { Point } from './model/matrix';
 import { drawOverlay } from './render/overlay';
 import { SceneIndex } from './spatial/scene-index';
 import { selectionFrame } from './tools/handles';
+import { CreateTool, TOOL_SHORTCUTS } from './tools/create-tool';
 import { SelectTool } from './tools/select-tool';
 
 function $<T extends HTMLElement>(id: string): T {
@@ -29,7 +30,37 @@ function boot(): void {
   const invalidate = (): void => {
     dirty = true;
   };
-  const tool = new SelectTool(doc, index, camera, invalidate);
+  type ToolName = 'select' | 'rect' | 'ellipse' | 'line';
+  let active: ToolName = 'select';
+  const setTool = (name: ToolName): void => {
+    if (create.dragging) create.cancel();
+    if (select.dragging) select.cancel();
+    active = name;
+    if (name !== 'select') {
+      create.kind = name;
+      select.hover = null;
+    }
+    for (const t of ['select', 'rect', 'ellipse', 'line'] as const) {
+      const b = $(`tool-${t}`);
+      b.classList.toggle('active', t === name);
+      b.setAttribute('aria-pressed', String(t === name));
+    }
+    canvas.classList.toggle('creating', name !== 'select');
+    invalidate();
+  };
+  const create = new CreateTool(
+    doc,
+    index,
+    camera,
+    (id) => {
+      select.selection.replace([id]);
+      setTool('select');
+    },
+    invalidate,
+  );
+  // The overlay and pointer code talk to whichever tool is active.
+  const select = new SelectTool(doc, index, camera, invalidate);
+  const tool = select;
   renderer.overlay = (ctx, theme) => {
     const ids = tool.selection.ids.filter((id) => doc.has(id));
     drawOverlay(ctx, theme, camera, {
@@ -111,24 +142,29 @@ function boot(): void {
     $('hint').classList.add('hidden');
     if (pointers.size === 2) {
       tool.cancel();
+      create.cancel();
       panning = true;
       pinchDist = pinchState().dist;
     } else if (pointers.size === 1) {
       panning = e.button === 1 || spaceDown;
       if (panning) canvas.classList.add('panning');
-      else if (e.button === 0) tool.pointerDown(local(e), mods(e));
+      else if (e.button === 0) {
+        if (active === 'select') tool.pointerDown(local(e), mods(e));
+        else create.pointerDown(local(e));
+      }
     }
   });
   canvas.addEventListener('pointermove', (e) => {
     const prev = pointers.get(e.pointerId);
     if (!prev) {
-      tool.pointerMove(local(e), mods(e));
+      if (active === 'select') tool.pointerMove(local(e), mods(e));
       return;
     }
     const cur = local(e);
     if (pointers.size === 1) {
       if (panning) camera.panBy(cur.x - prev.x, cur.y - prev.y);
-      else tool.pointerMove(cur, mods(e));
+      else if (active === 'select') tool.pointerMove(cur, mods(e));
+      else create.pointerMove(cur, mods(e));
       pointers.set(e.pointerId, cur);
     } else if (pointers.size === 2) {
       const before = pinchState();
@@ -143,6 +179,7 @@ function boot(): void {
   const endPointer = (e: PointerEvent): void => {
     if (!pointers.delete(e.pointerId)) return;
     if (pointers.size === 0) {
+      if (create.dragging) create.pointerUp(local(e));
       tool.pointerUp();
       panning = false;
       canvas.classList.remove('panning');
@@ -152,6 +189,7 @@ function boot(): void {
   canvas.addEventListener('pointerup', endPointer);
   canvas.addEventListener('pointercancel', (e) => {
     tool.cancel();
+    create.cancel();
     endPointer(e);
   });
 
@@ -175,6 +213,8 @@ function boot(): void {
   $('zoom-label').addEventListener('click', () => {
     zoomBy(1 / camera.zoom);
   });
+  for (const t of ['select', 'rect', 'ellipse', 'line'] as const)
+    $(`tool-${t}`).addEventListener('click', () => setTool(t));
   $('fit').addEventListener('click', fit);
   $('theme').addEventListener('click', () =>
     setTheme(document.documentElement.dataset['theme'] !== 'dark'),
@@ -193,9 +233,16 @@ function boot(): void {
       e.preventDefault();
       return;
     }
+    const shortcut = TOOL_SHORTCUTS[e.key.toLowerCase()];
+    if (shortcut && !e.shiftKey && !tool.dragging && !create.dragging) {
+      setTool(shortcut);
+      return;
+    }
     switch (e.key) {
       case 'Escape':
-        if (tool.dragging) tool.cancel();
+        if (create.dragging) create.cancel();
+        else if (tool.dragging) tool.cancel();
+        else if (active !== 'select') setTool('select');
         else {
           tool.selection.clear();
           invalidate();
@@ -235,6 +282,8 @@ function boot(): void {
     renderer,
     index,
     tool,
+    create,
+    setTool,
     invalidate,
   };
 }
