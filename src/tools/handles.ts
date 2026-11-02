@@ -39,7 +39,7 @@ export function selectionFrame(doc: SceneDocument, ids: readonly NodeId[]): Sele
       matrix: doc.worldMatrix(only),
       width: n.width,
       height: n.height,
-      resizable: n.type !== 'line' && n.type !== 'group',
+      resizable: n.type !== 'line' && n.type !== 'group' && n.type !== 'path',
       rotatable: true,
     };
   }

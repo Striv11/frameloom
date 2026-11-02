@@ -2,6 +2,7 @@ import { ROOT_ID, type SceneDocument } from '../model/document';
 import { applyToPoint, invert, type Point, type Rect } from '../model/matrix';
 import type { NodeId } from '../model/types';
 
+import { pathHit } from '../model/path';
 import { RTree } from './rtree';
 
 /**
@@ -60,6 +61,10 @@ export class SceneIndex {
         const dx = (q.x - n.width / 2) / rx;
         const dy = (q.y - n.height / 2) / ry;
         if (dx * dx + dy * dy <= 1) return id;
+      } else if (n.type === 'path') {
+        const half = Math.max(n.strokeWidth / 2, 0) + tolerance;
+        if (pathHit(n.anchors, n.closed, n.fill !== null, n.stroke ? half : tolerance, q))
+          return id;
       } else if (
         q.x >= -tolerance &&
         q.y >= -tolerance &&

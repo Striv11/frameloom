@@ -226,6 +226,8 @@ function typeDefaults(type: SceneNode['type']): Record<string, unknown> {
       return { cornerRadius: 0 };
     case 'line':
       return { fill: null, stroke: '#1e1e1e', strokeWidth: 2 };
+    case 'path':
+      return { fill: null, stroke: '#1e1e1e', strokeWidth: 2, anchors: [], closed: false };
     case 'text':
       return {
         fill: '#1e1e1e',

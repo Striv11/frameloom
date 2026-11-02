@@ -1,6 +1,8 @@
+import type { PathAnchor } from './path';
+
 export type NodeId = string;
 
-export type NodeType = 'frame' | 'group' | 'rect' | 'ellipse' | 'line' | 'text';
+export type NodeType = 'frame' | 'group' | 'rect' | 'ellipse' | 'line' | 'path' | 'text';
 
 /** CSS color string, or `null` for "none". */
 export type Paint = string | null;
@@ -47,6 +49,15 @@ export interface EllipseNode extends BaseNode {
 export interface LineNode extends BaseNode {
   type: 'line';
 }
+/**
+ * A bezier path. Anchors live in local space and are kept normalized so the
+ * curve's exact bounds start at (0,0); width/height are those bounds.
+ */
+export interface PathNode extends BaseNode {
+  type: 'path';
+  anchors: readonly PathAnchor[];
+  closed: boolean;
+}
 export interface TextNode extends BaseNode {
   type: 'text';
   text: string;
@@ -54,6 +65,7 @@ export interface TextNode extends BaseNode {
   fontFamily: string;
 }
 
-export type SceneNode = FrameNode | GroupNode | RectNode | EllipseNode | LineNode | TextNode;
+export type SceneNode =
+  FrameNode | GroupNode | RectNode | EllipseNode | LineNode | PathNode | TextNode;
 
 export const CONTAINER_TYPES: ReadonlySet<NodeType> = new Set(['frame', 'group']);

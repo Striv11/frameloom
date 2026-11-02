@@ -1,6 +1,7 @@
 import type { SceneDocument } from '../model/document';
 import { ROOT_ID } from '../model/document';
 import { multiply, type Matrix, type Rect } from '../model/matrix';
+import { pathSegments } from '../model/path';
 import type { NodeId, SceneNode } from '../model/types';
 import type { Camera } from './camera';
 
@@ -125,6 +126,13 @@ export class Canvas2DRenderer {
         ctx.moveTo(0, 0);
         ctx.lineTo(n.width, n.height);
         break;
+      case 'path':
+        for (const [i, seg] of pathSegments(n.anchors, n.closed).entries()) {
+          if (i === 0) ctx.moveTo(seg[0].x, seg[0].y);
+          ctx.bezierCurveTo(seg[1].x, seg[1].y, seg[2].x, seg[2].y, seg[3].x, seg[3].y);
+        }
+        if (n.closed) ctx.closePath();
+        break;
       case 'text':
         ctx.font = `${n.fontSize}px ${n.fontFamily}`;
         ctx.textBaseline = 'top';
@@ -136,7 +144,7 @@ export class Canvas2DRenderer {
       case 'group':
         return;
     }
-    if (n.fill && n.type !== 'line') {
+    if (n.fill && n.type !== 'line' && (n.type !== 'path' || n.closed)) {
       ctx.fillStyle = n.fill;
       ctx.fill();
     }
