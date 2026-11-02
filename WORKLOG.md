@@ -46,3 +46,13 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: recording the pre/post patches at gesture end is simpler and cheaper than routing every mid-drag update through history; the live path stays untouched.
 - Limits: redo of coalesced batches grows with repeated keyed entries (no keyed callers yet; keyboard nudges will use it); the index is still rebuilt wholesale after undo.
 - Next (Day 6): pen tool and bezier path node (cubic segments, exact bounds, hit-testing).
+
+## 2026-11-02 — Day 6 (pen tool, bezier paths)
+
+- Added the `path` node and `src/model/path.ts`: cubic segments from anchors with in/out handles, exact bounds via derivative roots, adaptive flattening (de Casteljau), distance-to-curve, non-zero winding fill test, and `normalizePath`, which keeps anchors relative to the curve's own bounds so `x/y/width/height` stay meaningful and the existing selection/move/rotate/R-tree code needed no changes.
+- `PenTool` (DOM-free): click = corner, drag = symmetric handle (drags under 3px count as clicks), click the first anchor to close, Enter/Esc/tool switch commits an open path as one undo step. Wired in with a `P` shortcut, toolbar button, and an overlay drawing anchors/handles while drawing. Renderer draws paths with `bezierCurveTo`; `SceneIndex.hitTest` uses stroke distance for open paths and winding for filled closed ones.
+- Tests: 23 new unit tests (random-cubic bounds vs. dense sampling, flattening within tolerance, split consistency, hit/containment, pen sessions incl. frames, close, cancel, undo/redo). 121 unit tests pass via `check.sh`.
+- Not verified: the new Playwright flow (pen draws a curve, Enter commits, undo removes it) is written but Chromium isn't installed in this environment, so it has not been run; the existing e2e flows couldn't run either.
+- Learned: `-outX` on a zero gives `-0`, which `toMatchObject` (Object.is) rejects; normalise it at the source.
+- Limits: no editing of existing paths yet (anchor/handle dragging after commit), no resize by handle for paths, R-tree bounds ignore stroke width so very thick strokes at extremes can be missed by hit-testing.
+- Next (Day 7): text node with edit-in-place, layers panel, inspector. Path anchor editing is a good candidate to slot in alongside the inspector.

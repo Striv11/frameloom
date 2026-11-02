@@ -47,6 +47,8 @@ Everything is original code with no third-party runtime dependencies.
 - `src/tools/selection.ts`: `Selection`, group-aware picking (groups select as a unit, frame children directly) and marquee selection (frames must be fully enclosed).
 - `src/tools/handles.ts` / `select-tool.ts`: selection frame and 8+1 handles (single node), union box for multi-select (move only); `SelectTool` is a DOM-free pointer state machine (click, shift-click, marquee, move, resize, rotate, cancel).
 - `src/tools/create-tool.ts`: `CreateTool` (DOM-free) drag-to-create for rect/ellipse/line. The shape appears live, is parented to the topmost un-rotated frame under the pointer (positions converted to that frame's local space) and is discarded on a click without drag or on Esc. `shapeBox` holds the pure geometry: Shift = square, or 45° line snapping.
+- `src/model/path.ts`: bezier math for the `path` node. Anchors carry in/out handle offsets; `pathSegments` yields cubics (plus the closing one), `cubicBounds`/`pathBounds` are exact (derivative roots, not control-point hulls), `flattenCubic` is adaptive de Casteljau subdivision to a tolerance, and `pathHit` combines distance-to-stroke with a non-zero winding test for filled closed paths. Anchors are immutable and stored normalized so the curve's bounds start at (0,0); node `x/y/width/height` are those bounds, so selection, move, rotate and the R-tree work unchanged.
+- `src/tools/pen-tool.ts`: `PenTool` (DOM-free). Click = corner anchor, click-drag = symmetric handle, click the first anchor = close; Enter/Esc/switching tool commits an open path (one undo step), fewer than 2 anchors is discarded.
 - `src/model/history.ts`: invertible `Op`s (`add` subtree, `remove`, `update`, `reparent`, `batch`); `applyOp` executes an op and returns its exact inverse, so there is no per-kind undo code. `History` keeps undo/redo stacks (limit 500); `apply` runs an op, `record` logs a change a tool already made live, so a whole drag is one step. Same-key entries merge until an undo/redo seals them.
 - `src/render/overlay.ts`: screen-space selection, hover, handles and marquee painted after the scene.
 - `src/render/camera.ts`: world ↔ screen mapping with cursor-anchored zoom.
@@ -67,7 +69,7 @@ Add `?stress=10000` to the URL to load 10,000 random shapes.
 
 ## Demo
 
-Open the live link (or `npm run dev`). Click to select, Shift-click to add/remove, drag empty space for a marquee, drag a selection to move it, use the square handles to resize and the round handle to rotate (Shift = keep aspect / snap 15°), `Esc` cancels a drag or clears the selection. Hold Space (or middle-drag) to pan, scroll to pan, Ctrl/⌘+scroll or pinch to zoom, `0` to fit, `1` for 100%, `D` toggles light/dark. The HUD shows shape count, drawn shapes after culling, and frame time. Status: **Day 5 of 14**: select/move/resize/rotate, creation tools, and undo/redo (`Ctrl/⌘+Z`, `Ctrl/⌘+Shift+Z` or `Ctrl+Y`, or the toolbar arrows; each drag or creation is one step). Press `V` select, `R` rectangle, `O` ellipse, `L` line (or use the toolbar), drag to draw, hold Shift for a square / 45° line, `Esc` cancels; the new shape is selected and the tool returns to Select. Resizing by handle is single-node only (lines and groups can be moved and rotated, not resized, until line endpoints / group scaling exist).
+Open the live link (or `npm run dev`). Click to select, Shift-click to add/remove, drag empty space for a marquee, drag a selection to move it, use the square handles to resize and the round handle to rotate (Shift = keep aspect / snap 15°), `Esc` cancels a drag or clears the selection. Hold Space (or middle-drag) to pan, scroll to pan, Ctrl/⌘+scroll or pinch to zoom, `0` to fit, `1` for 100%, `D` toggles light/dark. The HUD shows shape count, drawn shapes after culling, and frame time. Status: **Day 6 of 14**: select/move/resize/rotate, creation tools, and undo/redo (`Ctrl/⌘+Z`, `Ctrl/⌘+Shift+Z` or `Ctrl+Y`, or the toolbar arrows; each drag or creation is one step). Press `V` select, `R` rectangle, `O` ellipse, `L` line, `P` pen (or use the toolbar), drag to draw, hold Shift for a square / 45° line, `Esc` cancels; the new shape is selected and the tool returns to Select. Pen: click for corners, click-drag for curves, click the first point to close, `Enter`/`Esc` to finish an open path. Resizing by handle is single-node only (lines, paths and groups can be moved and rotated, not resized, until line endpoints / group scaling exist).
 
 ## Design decisions & trade-offs
 
@@ -85,7 +87,8 @@ See [PLAN.md](PLAN.md) for the 14-day plan with acceptance criteria.
 - [x] Day 3: selection and transform tools (move, resize, rotate)
 - [x] Shape creation tools
 - [x] Operation log and undo/redo
-- [ ] Pen tool, text, layers, inspector
+- [x] Pen tool and bezier paths
+- [ ] Text, layers, inspector
 - [ ] Grouping, frames, snapping
 - [ ] CRDT, multi-tab collaboration, IndexedDB
 - [ ] Components, export, command palette, WebGL2
