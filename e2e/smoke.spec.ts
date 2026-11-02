@@ -235,3 +235,37 @@ test('undo/redo reverts a drawn shape and a move via keyboard and buttons', asyn
   await page.locator('#redo').click();
   await expect(page.locator('#redo')).toBeDisabled();
 });
+
+test('pen tool draws a curved path, Enter commits it, undo removes it', async ({ page }) => {
+  await page.goto('/');
+  const paths = () =>
+    page.evaluate(() => {
+      const h = (window as unknown as Hook).__frameloom;
+      return [...h.doc.paintOrder()]
+        .filter((n) => (n as { type?: string }).type === 'path')
+        .map((n) => ({ ...n, anchors: (n as unknown as { anchors: unknown[] }).anchors }));
+    });
+  const a = await screenOf(page, 450, 250);
+  const b = await screenOf(page, 560, 250);
+  const c = await screenOf(page, 560, 340);
+
+  await page.keyboard.press('p');
+  await expect(page.locator('#tool-pen')).toHaveAttribute('aria-pressed', 'true');
+  await page.mouse.click(a.x, a.y);
+  // Drag the second anchor to pull out a bezier handle.
+  await page.mouse.move(b.x, b.y);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 30, b.y + 40, { steps: 4 });
+  await page.mouse.up();
+  await page.mouse.click(c.x, c.y);
+  await page.keyboard.press('Enter');
+
+  const [p] = await paths();
+  expect(p?.anchors).toHaveLength(3);
+  expect(p!.width).toBeGreaterThan(100);
+  await expect(page.locator('#tool-select')).toHaveAttribute('aria-pressed', 'true');
+  expect(await selected(page)).toBe(1);
+
+  await page.keyboard.press('Control+z');
+  expect(await paths()).toHaveLength(0);
+});

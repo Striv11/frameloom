@@ -8,11 +8,12 @@ import type { Modifiers } from './select-tool';
 
 export type ShapeKind = 'rect' | 'ellipse' | 'line';
 
-export const TOOL_SHORTCUTS: Readonly<Record<string, 'select' | ShapeKind>> = {
+export const TOOL_SHORTCUTS: Readonly<Record<string, 'select' | 'pen' | ShapeKind>> = {
   v: 'select',
   r: 'rect',
   o: 'ellipse',
   l: 'line',
+  p: 'pen',
 };
 
 /** Drags shorter than this many screen pixels are treated as clicks and create nothing. */
@@ -155,18 +156,22 @@ export class CreateTool {
     this.onChange();
   }
 
-  /** Topmost visible, unlocked, un-rotated frame containing the world point, else the root. */
   private parentAt(world: Point): NodeId {
-    let found: NodeId = ROOT_ID;
-    for (const n of this.doc.paintOrder()) {
-      if (n.type !== 'frame' || !n.visible || n.locked) continue;
-      const m = this.doc.worldMatrix(n.id);
-      if (Math.abs(m[1]) > 1e-9 || Math.abs(m[2]) > 1e-9) continue;
-      const inv = invert(m);
-      if (!inv) continue;
-      const q = applyToPoint(inv, world);
-      if (q.x >= 0 && q.y >= 0 && q.x <= n.width && q.y <= n.height) found = n.id;
-    }
-    return found;
+    return frameAt(this.doc, world);
   }
+}
+
+/** Topmost visible, unlocked, un-rotated frame containing the world point, else the root. */
+export function frameAt(doc: SceneDocument, world: Point): NodeId {
+  let found: NodeId = ROOT_ID;
+  for (const n of doc.paintOrder()) {
+    if (n.type !== 'frame' || !n.visible || n.locked) continue;
+    const m = doc.worldMatrix(n.id);
+    if (Math.abs(m[1]) > 1e-9 || Math.abs(m[2]) > 1e-9) continue;
+    const inv = invert(m);
+    if (!inv) continue;
+    const q = applyToPoint(inv, world);
+    if (q.x >= 0 && q.y >= 0 && q.x <= n.width && q.y <= n.height) found = n.id;
+  }
+  return found;
 }

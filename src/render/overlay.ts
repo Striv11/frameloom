@@ -1,4 +1,5 @@
-import { applyToPoint, type Point, type Rect } from '../model/matrix';
+import { applyToPoint, type Matrix, type Point, type Rect } from '../model/matrix';
+import type { PathAnchor } from '../model/path';
 import type { Camera } from './camera';
 import type { Theme } from './canvas2d';
 import { handlePoints, type SelectionFrame } from '../tools/handles';
@@ -9,6 +10,8 @@ export interface OverlayState {
   outlines: SelectionFrame[];
   marquee: Rect | null;
   hover: SelectionFrame | null;
+  /** In-progress pen path: anchors in the space of `matrix` (local -> world). */
+  pen?: { anchors: readonly PathAnchor[]; matrix: Matrix } | null;
 }
 
 const HANDLE_SIZE = 8;
@@ -42,6 +45,7 @@ export function drawOverlay(
     ctx.globalAlpha = 1;
   }
   for (const o of state.outlines) strokeFrame(ctx, camera, o);
+  if (state.pen) drawPenAnchors(ctx, theme, camera, state.pen.anchors, state.pen.matrix);
   const frame = state.frame;
   if (frame) {
     ctx.lineWidth = 1.5;
@@ -80,5 +84,38 @@ export function drawOverlay(
     ctx.fillRect(a.x, a.y, w, h);
     ctx.globalAlpha = 1;
     ctx.strokeRect(a.x + 0.5, a.y + 0.5, w, h);
+  }
+}
+
+function drawPenAnchors(
+  ctx: CanvasRenderingContext2D,
+  theme: Theme,
+  camera: Camera,
+  anchors: readonly PathAnchor[],
+  matrix: Matrix,
+): void {
+  const toScreen = (x: number, y: number): Point =>
+    camera.worldToScreen(applyToPoint(matrix, { x, y }));
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = theme.accent;
+  ctx.fillStyle = theme.handleFill;
+  for (const a of anchors) {
+    const p = toScreen(a.x, a.y);
+    if (a.outX !== 0 || a.outY !== 0) {
+      const o = toScreen(a.x + a.outX, a.y + a.outY);
+      const i = toScreen(a.x + a.inX, a.y + a.inY);
+      ctx.beginPath();
+      ctx.moveTo(i.x, i.y);
+      ctx.lineTo(o.x, o.y);
+      ctx.stroke();
+      for (const h of [i, o]) {
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    ctx.fillRect(p.x - 4, p.y - 4, 8, 8);
+    ctx.strokeRect(p.x - 4, p.y - 4, 8, 8);
   }
 }

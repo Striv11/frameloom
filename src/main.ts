@@ -8,6 +8,7 @@ import { History } from './model/history';
 import { SceneIndex } from './spatial/scene-index';
 import { selectionFrame } from './tools/handles';
 import { CreateTool, TOOL_SHORTCUTS } from './tools/create-tool';
+import { PenTool } from './tools/pen-tool';
 import { SelectTool } from './tools/select-tool';
 
 function $<T extends HTMLElement>(id: string): T {
@@ -34,17 +35,18 @@ function boot(): void {
   const invalidate = (): void => {
     dirty = true;
   };
-  type ToolName = 'select' | 'rect' | 'ellipse' | 'line';
+  type ToolName = 'select' | 'rect' | 'ellipse' | 'line' | 'pen';
   let active: ToolName = 'select';
   const setTool = (name: ToolName): void => {
     if (create.dragging) create.cancel();
     if (select.dragging) select.cancel();
+    pen.finish();
     active = name;
+    if (name === 'rect' || name === 'ellipse' || name === 'line') create.kind = name;
     if (name !== 'select') {
-      create.kind = name;
       select.hover = null;
     }
-    for (const t of ['select', 'rect', 'ellipse', 'line'] as const) {
+    for (const t of ['select', 'rect', 'ellipse', 'line', 'pen'] as const) {
       const b = $(`tool-${t}`);
       b.classList.toggle('active', t === name);
       b.setAttribute('aria-pressed', String(t === name));
@@ -59,7 +61,7 @@ function boot(): void {
     if (r) r.disabled = !history.canRedo;
   }
   const stepHistory = (dir: 'undo' | 'redo'): void => {
-    if (create.dragging || tool.dragging) return;
+    if (create.dragging || tool.dragging || pen.active) return;
     if (!history[dir]()) return;
     index.rebuild();
     tool.selection.prune(doc);
@@ -76,6 +78,14 @@ function boot(): void {
     invalidate,
     history,
   );
+  const pen = new PenTool(
+    doc,
+    index,
+    camera,
+    (id) => select.selection.replace([id]),
+    invalidate,
+    history,
+  );
   // The overlay and pointer code talk to whichever tool is active.
   const select = new SelectTool(doc, index, camera, invalidate, history);
   const tool = select;
@@ -85,6 +95,7 @@ function boot(): void {
       frame: tool.frame(),
       outlines: ids.length > 1 ? ids.flatMap((id) => selectionFrame(doc, [id]) ?? []) : [],
       marquee: tool.marquee,
+      pen: pen.preview(),
       hover:
         tool.hover && !tool.dragging && !tool.selection.has(tool.hover) && doc.has(tool.hover)
           ? selectionFrame(doc, [tool.hover])
@@ -161,6 +172,7 @@ function boot(): void {
     if (pointers.size === 2) {
       tool.cancel();
       create.cancel();
+      pen.cancel();
       panning = true;
       pinchDist = pinchState().dist;
     } else if (pointers.size === 1) {
@@ -168,7 +180,10 @@ function boot(): void {
       if (panning) canvas.classList.add('panning');
       else if (e.button === 0) {
         if (active === 'select') tool.pointerDown(local(e), mods(e));
-        else create.pointerDown(local(e));
+        else if (active === 'pen') {
+          pen.pointerDown(local(e));
+          if (!pen.active) setTool('select');
+        } else create.pointerDown(local(e));
       }
     }
   });
@@ -182,6 +197,7 @@ function boot(): void {
     if (pointers.size === 1) {
       if (panning) camera.panBy(cur.x - prev.x, cur.y - prev.y);
       else if (active === 'select') tool.pointerMove(cur, mods(e));
+      else if (active === 'pen') pen.pointerMove(cur);
       else create.pointerMove(cur, mods(e));
       pointers.set(e.pointerId, cur);
     } else if (pointers.size === 2) {
@@ -198,6 +214,7 @@ function boot(): void {
     if (!pointers.delete(e.pointerId)) return;
     if (pointers.size === 0) {
       if (create.dragging) create.pointerUp(local(e));
+      pen.pointerUp();
       tool.pointerUp();
       panning = false;
       canvas.classList.remove('panning');
@@ -208,6 +225,7 @@ function boot(): void {
   canvas.addEventListener('pointercancel', (e) => {
     tool.cancel();
     create.cancel();
+    pen.cancel();
     endPointer(e);
   });
 
@@ -231,7 +249,7 @@ function boot(): void {
   $('zoom-label').addEventListener('click', () => {
     zoomBy(1 / camera.zoom);
   });
-  for (const t of ['select', 'rect', 'ellipse', 'line'] as const)
+  for (const t of ['select', 'rect', 'ellipse', 'line', 'pen'] as const)
     $(`tool-${t}`).addEventListener('click', () => setTool(t));
   $('undo').addEventListener('click', () => stepHistory('undo'));
   $('redo').addEventListener('click', () => stepHistory('redo'));
@@ -267,8 +285,12 @@ function boot(): void {
       return;
     }
     switch (e.key) {
+      case 'Enter':
+        if (pen.active) setTool('select');
+        break;
       case 'Escape':
-        if (create.dragging) create.cancel();
+        if (pen.active) setTool('select');
+        else if (create.dragging) create.cancel();
         else if (tool.dragging) tool.cancel();
         else if (active !== 'select') setTool('select');
         else {
@@ -311,6 +333,7 @@ function boot(): void {
     index,
     tool,
     create,
+    pen,
     history,
     stepHistory,
     setTool,
