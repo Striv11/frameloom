@@ -2,7 +2,7 @@ import './style.css';
 import { createDemoDocument, createStressDocument } from './app/demo';
 import { Camera } from './render/camera';
 import { Canvas2DRenderer, DARK, LIGHT } from './render/canvas2d';
-import type { Point } from './model/matrix';
+import { applyToPoint, type Point } from './model/matrix';
 import { drawOverlay } from './render/overlay';
 import { History } from './model/history';
 import { SceneIndex } from './spatial/scene-index';
@@ -10,6 +10,8 @@ import { selectionFrame } from './tools/handles';
 import { CreateTool, TOOL_SHORTCUTS } from './tools/create-tool';
 import { PenTool } from './tools/pen-tool';
 import { SelectTool } from './tools/select-tool';
+import { TextTool } from './tools/text-tool';
+import { applyField, inspect, type FieldKey } from './tools/inspector';
 
 function $<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -35,18 +37,19 @@ function boot(): void {
   const invalidate = (): void => {
     dirty = true;
   };
-  type ToolName = 'select' | 'rect' | 'ellipse' | 'line' | 'pen';
+  type ToolName = 'select' | 'rect' | 'ellipse' | 'line' | 'pen' | 'text';
   let active: ToolName = 'select';
   const setTool = (name: ToolName): void => {
     if (create.dragging) create.cancel();
     if (select.dragging) select.cancel();
     pen.finish();
+    endTextEdit();
     active = name;
     if (name === 'rect' || name === 'ellipse' || name === 'line') create.kind = name;
     if (name !== 'select') {
       select.hover = null;
     }
-    for (const t of ['select', 'rect', 'ellipse', 'line', 'pen'] as const) {
+    for (const t of ['select', 'rect', 'ellipse', 'line', 'pen', 'text'] as const) {
       const b = $(`tool-${t}`);
       b.classList.toggle('active', t === name);
       b.setAttribute('aria-pressed', String(t === name));
@@ -86,6 +89,135 @@ function boot(): void {
     invalidate,
     history,
   );
+  const measureCtx = document.createElement('canvas').getContext('2d');
+  const textTool = new TextTool(
+    doc,
+    index,
+    camera,
+    (text, fontSize, fontFamily) => {
+      if (!measureCtx) return { width: text.length * fontSize * 0.6, height: fontSize * 1.25 };
+      measureCtx.font = `${fontSize}px ${fontFamily}`;
+      const lines = text.split('\n');
+      return {
+        width: Math.ceil(Math.max(...lines.map((l) => measureCtx.measureText(l).width))),
+        height: Math.ceil(lines.length * fontSize * 1.25),
+      };
+    },
+    invalidate,
+    history,
+  );
+  const editor = $<HTMLTextAreaElement>('text-editor');
+  function placeEditor(): void {
+    const id = textTool.editing;
+    if (!id || !doc.has(id)) return;
+    const n = doc.get(id);
+    const p = camera.worldToScreen(applyToPoint(doc.worldMatrix(id), { x: 0, y: 0 }));
+    editor.style.left = `${p.x}px`;
+    editor.style.top = `${p.y}px`;
+    editor.style.fontSize = `${('fontSize' in n ? n.fontSize : 16) * camera.zoom}px`;
+    editor.style.minWidth = `${Math.max(n.width * camera.zoom, 40)}px`;
+  }
+  function startTextEdit(id: string | null): void {
+    if (!id) return;
+    const n = doc.get(id);
+    editor.hidden = false;
+    editor.value = n.type === 'text' ? n.text : '';
+    placeEditor();
+    requestAnimationFrame(() => editor.focus());
+    invalidate();
+  }
+  function endTextEdit(): void {
+    if (!textTool.active) return;
+    const id = textTool.commit();
+    editor.hidden = true;
+    if (id) select.selection.replace([id]);
+    refreshInspector();
+    invalidate();
+  }
+  editor.addEventListener('input', () => {
+    textTool.setText(editor.value);
+    placeEditor();
+  });
+  editor.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape' || (e.key === 'Enter' && (e.metaKey || e.ctrlKey))) {
+      e.preventDefault();
+      if (e.key === 'Escape') {
+        textTool.cancel();
+        editor.hidden = true;
+        invalidate();
+      } else endTextEdit();
+      setTool('select');
+    }
+  });
+  editor.addEventListener('blur', () => {
+    if (textTool.active) {
+      endTextEdit();
+      if (active === 'text') setTool('select');
+    }
+  });
+
+  // --- Inspector ---
+  const panel = $('inspector');
+  const LABELS: Record<FieldKey, string> = {
+    x: 'X',
+    y: 'Y',
+    width: 'W',
+    height: 'H',
+    rotation: 'Rotation °',
+    opacity: 'Opacity %',
+    fill: 'Fill',
+    stroke: 'Stroke',
+    strokeWidth: 'Stroke width',
+  };
+  let inspectorKey = '';
+  function refreshInspector(): void {
+    const ids = select.selection.ids.filter((id) => doc.has(id));
+    const fields = inspect(doc, ids);
+    panel.hidden = fields.length === 0;
+    if (fields.length === 0) {
+      inspectorKey = '';
+      return;
+    }
+    // Rebuild only when the set of rows changes; otherwise update values in place.
+    const key = ids.join(',') + fields.map((f) => (f.editable ? '1' : '0')).join('');
+    if (key !== inspectorKey) {
+      inspectorKey = key;
+      panel.replaceChildren();
+      const title = document.createElement('h2');
+      title.textContent =
+        ids.length === 1 ? doc.get(ids[0] as string).name : `${ids.length} selected`;
+      panel.append(title);
+      for (const f of fields) {
+        const row = document.createElement('label');
+        row.className = 'row';
+        const span = document.createElement('span');
+        span.textContent = LABELS[f.key];
+        const input = document.createElement('input');
+        input.dataset['field'] = f.key;
+        input.disabled = !f.editable;
+        input.autocomplete = 'off';
+        input.addEventListener('change', () => {
+          applyField(doc, history, select.selection.ids, f.key, input.value);
+          index.rebuild();
+          refreshInspector();
+          invalidate();
+        });
+        input.addEventListener('keydown', (e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') input.blur();
+        });
+        row.append(span, input);
+        panel.append(row);
+      }
+    }
+    for (const f of fields) {
+      const input = panel.querySelector<HTMLInputElement>(`[data-field="${f.key}"]`);
+      if (!input || document.activeElement === input) continue;
+      input.value = f.value.mixed ? '' : String(f.value.value ?? 'none');
+      input.placeholder = f.value.mixed ? 'Mixed' : '';
+    }
+  }
   // The overlay and pointer code talk to whichever tool is active.
   const select = new SelectTool(doc, index, camera, invalidate, history);
   const tool = select;
@@ -112,6 +244,8 @@ function boot(): void {
   const loop = (): void => {
     if (dirty) {
       dirty = false;
+      refreshInspector();
+      placeEditor();
       const t0 = performance.now();
       renderer.resize();
       renderer.render();
@@ -153,7 +287,7 @@ function boot(): void {
   let panning = false;
   let spaceDown = false;
   let pinchDist = 0;
-  const local = (e: PointerEvent | WheelEvent): Point => {
+  const local = (e: MouseEvent): Point => {
     const r = canvas.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
@@ -180,7 +314,10 @@ function boot(): void {
       if (panning) canvas.classList.add('panning');
       else if (e.button === 0) {
         if (active === 'select') tool.pointerDown(local(e), mods(e));
-        else if (active === 'pen') {
+        else if (active === 'text') {
+          startTextEdit(textTool.begin(local(e)));
+          e.preventDefault();
+        } else if (active === 'pen') {
           pen.pointerDown(local(e));
           if (!pen.active) setTool('select');
         } else create.pointerDown(local(e));
@@ -221,6 +358,11 @@ function boot(): void {
     }
     if (pointers.size === 1) pinchDist = 0;
   };
+  canvas.addEventListener('dblclick', (e) => {
+    if (active !== 'select') return;
+    const id = index.hitTest(camera.screenToWorld(local(e)));
+    if (id && doc.get(id).type === 'text' && textTool.edit(id)) startTextEdit(id);
+  });
   canvas.addEventListener('pointerup', endPointer);
   canvas.addEventListener('pointercancel', (e) => {
     tool.cancel();
@@ -249,7 +391,7 @@ function boot(): void {
   $('zoom-label').addEventListener('click', () => {
     zoomBy(1 / camera.zoom);
   });
-  for (const t of ['select', 'rect', 'ellipse', 'line', 'pen'] as const)
+  for (const t of ['select', 'rect', 'ellipse', 'line', 'pen', 'text'] as const)
     $(`tool-${t}`).addEventListener('click', () => setTool(t));
   $('undo').addEventListener('click', () => stepHistory('undo'));
   $('redo').addEventListener('click', () => stepHistory('redo'));
@@ -335,6 +477,7 @@ function boot(): void {
     create,
     pen,
     history,
+    textTool,
     stepHistory,
     setTool,
     invalidate,

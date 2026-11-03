@@ -8,12 +8,13 @@ import type { Modifiers } from './select-tool';
 
 export type ShapeKind = 'rect' | 'ellipse' | 'line';
 
-export const TOOL_SHORTCUTS: Readonly<Record<string, 'select' | 'pen' | ShapeKind>> = {
+export const TOOL_SHORTCUTS: Readonly<Record<string, 'select' | 'pen' | 'text' | ShapeKind>> = {
   v: 'select',
   r: 'rect',
   o: 'ellipse',
   l: 'line',
   p: 'pen',
+  t: 'text',
 };
 
 /** Drags shorter than this many screen pixels are treated as clicks and create nothing. */

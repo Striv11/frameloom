@@ -132,7 +132,14 @@ describe('CreateTool', () => {
 });
 
 describe('shortcuts', () => {
-  it('maps V/R/O/L/P', () => {
-    expect(TOOL_SHORTCUTS).toEqual({ v: 'select', r: 'rect', o: 'ellipse', l: 'line', p: 'pen' });
+  it('maps V/R/O/L/P/T', () => {
+    expect(TOOL_SHORTCUTS).toEqual({
+      v: 'select',
+      r: 'rect',
+      o: 'ellipse',
+      l: 'line',
+      p: 'pen',
+      t: 'text',
+    });
   });
 });

@@ -269,3 +269,23 @@ test('pen tool draws a curved path, Enter commits it, undo removes it', async ({
   await page.keyboard.press('Control+z');
   expect(await paths()).toHaveLength(0);
 });
+
+test('text tool creates text in place and the inspector edits it', async ({ page }) => {
+  await page.goto('./');
+  await page.keyboard.press('t');
+  const box = (await page.locator('#canvas').boundingBox())!;
+  await page.mouse.click(box.x + 200, box.y + 200);
+  await page.keyboard.type('Hello');
+  await page.keyboard.press('Control+Enter');
+  const count = await page.evaluate(
+    () =>
+      [...(window as unknown as Hook).__frameloom.doc.paintOrder()].filter(
+        (n) => (n as { type?: string }).type === 'text',
+      ).length,
+  );
+  expect(count).toBeGreaterThanOrEqual(1);
+  await expect(page.locator('#inspector')).toBeVisible();
+  await page.locator('#inspector [data-field="x"]').fill('123');
+  await page.locator('#inspector [data-field="x"]').press('Enter');
+  await expect(page.locator('#inspector [data-field="x"]')).toHaveValue('123');
+});

@@ -69,6 +69,15 @@
           <button id="tool-pen" class="btn" aria-label="Pen" aria-pressed="false" title="Pen (P)">
             ✒
           </button>
+          <button
+            id="tool-text"
+            class="btn"
+            aria-label="Text"
+            aria-pressed="false"
+            title="Text (T)"
+          >
+            T
+          </button>
         </div>
         <div class="group" role="group" aria-label="History">
           <button id="undo" class="btn" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
@@ -106,6 +115,14 @@
           Click or drag to select · Hold <kbd>Space</kbd> and drag to pan · Scroll or pinch to zoom
           · <kbd>0</kbd> fits the view
         </div>
+        <textarea
+          id="text-editor"
+          class="text-editor"
+          aria-label="Edit text"
+          spellcheck="false"
+          hidden
+        ></textarea>
+        <aside id="inspector" class="inspector" aria-label="Inspector" hidden></aside>
         <div id="error" class="error" role="alert" hidden></div>
       </main>
     </div>

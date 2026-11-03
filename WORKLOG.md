@@ -56,3 +56,13 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: `-outX` on a zero gives `-0`, which `toMatchObject` (Object.is) rejects; normalise it at the source.
 - Limits: no editing of existing paths yet (anchor/handle dragging after commit), no resize by handle for paths, R-tree bounds ignore stroke width so very thick strokes at extremes can be missed by hit-testing.
 - Next (Day 7): text node with edit-in-place, layers panel, inspector. Path anchor editing is a good candidate to slot in alongside the inspector.
+
+## 2026-11-03 — Day 7, part 1 (text, inspector)
+
+- Added `TextTool` (DOM-free): click creates a text node, `edit(id)` reopens one, content re-measures through an injected `TextMeasure` (canvas `measureText` in the app, a deterministic approximation in tests). Create and edit are each one undo step, and the edit's undo restores text and box together. Empty new text vanishes without touching history.
+- Added `src/tools/inspector.ts`: display-unit values with `mixed` detection, input validation (hex colors / none, opacity clamp, degrees to radians), and `applyField`, which edits all selected nodes that support the field as one batch and coalesces repeated edits of the same field. Size is read-only for text, lines, paths and groups, since there is no resize op for them yet.
+- UI: `T` tool and toolbar button, textarea overlay positioned from the camera, double-click to edit text, an inspector panel that updates in place (no rebuild while typing).
+- Tests: 15 new unit tests (136 total) plus an e2e flow for text and inspector. **The e2e flow is unverified**: Chromium is not installed here, so no Playwright test (new or old) has run.
+- Learned: a text undo needs the measured size in the patch, otherwise undoing a longer edit leaves a stale box.
+- Not done: **layers panel** (rename, visibility/lock, drag reorder) — the rest of Day 7, so the PLAN row is marked partial (`[~]`). Inspector stroke/fill use text inputs, no color picker.
+- Next: layers panel on top of `History` reparent/update ops, then finish Day 7 and move to grouping (Day 8).
