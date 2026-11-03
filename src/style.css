@@ -249,3 +249,96 @@ kbd {
     max-height: 40%;
   }
 }
+
+.layers {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  width: 210px;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: var(--text-sm);
+  max-height: 50%;
+  overflow: auto;
+}
+.layers h2 {
+  margin: 0 0 var(--space-2);
+  padding: 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+.layer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.layer {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px var(--space-1);
+  border-radius: 6px;
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  cursor: default;
+}
+.layer.selected {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+.layer.hidden-layer .layer-name {
+  opacity: 0.45;
+}
+.layer.drop-above {
+  border-top-color: var(--text);
+}
+.layer.drop-below {
+  border-bottom-color: var(--text);
+}
+.layer.drop-inside {
+  outline: 1px solid var(--text);
+}
+.layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.layer-name-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.layer button {
+  width: 20px;
+  padding: 0;
+  font: inherit;
+  line-height: 1.4;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.layer button:hover {
+  color: var(--text);
+}
+.layer button.off {
+  opacity: 0.4;
+}
+.layer-more {
+  padding: 2px var(--space-1);
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .layers {
+    display: none;
+  }
+}

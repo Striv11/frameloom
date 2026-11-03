@@ -66,3 +66,13 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: a text undo needs the measured size in the patch, otherwise undoing a longer edit leaves a stale box.
 - Not done: **layers panel** (rename, visibility/lock, drag reorder) — the rest of Day 7, so the PLAN row is marked partial (`[~]`). Inspector stroke/fill use text inputs, no color picker.
 - Next: layers panel on top of `History` reparent/update ops, then finish Day 7 and move to grouping (Day 8).
+
+## 2026-11-03 — Day 7, part 2 (layers panel)
+
+- Added `src/tools/layers.ts` (pure, DOM-free): `layerRows` (topmost-first tree, collapsible, row limit), `renameLayer`, `setLayerVisible`, `setLayerLocked`, `moveLayer`. Every mutation goes through `History`, so each is one undo step and no-ops (same name, same position, blank name) leave no history.
+- `moveLayer` handles above/below/inside drops. Moving between parents shifts x/y so the world position is unchanged; if either parent chain is rotated it refuses (a compensating rotation needs the general reparent work planned for Day 8). Cycles, non-container targets and the root are rejected.
+- UI: left-hand layers panel with select/shift-select, double-click rename, visibility and lock toggles (the renderer and hit-test already honored those flags), twisty collapse, and HTML drag-and-drop with drop-position markers. The DOM is rebuilt only when a cheap signature of the first 300 rows changes, so the 10k stress scene stays fast. Hidden below 640px wide.
+- Tests: 10 new unit tests (146 total) covering rows, caps, rename/visibility/lock undo, reorder in both directions, world-preserving reparent in and out of frames, and rejection cases. A Playwright flow for the panel was added but **not run**: Chromium isn't installed here (same as Days 6–7 part 1), so no e2e has been verified recently.
+- Learned: `reparent`'s index is counted after detaching, so "drop below" in the same parent needs the sibling list filtered of the dragged node first.
+- Limits: no keyboard reordering in the panel, native drag-and-drop isn't touch-friendly, names/ids of descendants of a hidden parent aren't dimmed.
+- Day 7 is complete. Next (Day 8): multi-select, Ctrl+G group/ungroup, frame clipping, drop-to-reparent on the canvas (reuse `moveLayer`'s world-preserving logic, extended to rotated parents), mixed-value inspector is already done.

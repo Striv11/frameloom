@@ -289,3 +289,29 @@ test('text tool creates text in place and the inspector edits it', async ({ page
   await page.locator('#inspector [data-field="x"]').press('Enter');
   await expect(page.locator('#inspector [data-field="x"]')).toHaveValue('123');
 });
+
+test('layers panel: select, rename, hide, lock and reorder', async ({ page }) => {
+  await page.goto('/');
+  const rows = page.locator('#layer-list .layer');
+  await expect(rows.first()).toBeVisible();
+  const cover = page.locator('#layer-list .layer', { hasText: 'Cover' });
+
+  await cover.click();
+  const ids = await page.evaluate(
+    () => (window as unknown as Hook).__frameloom.tool.selection.ids.length,
+  );
+  expect(ids).toBe(1);
+
+  await cover.locator('.layer-name').dblclick();
+  await page.locator('.layer-name-input').fill('Hero');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#layer-list .layer', { hasText: 'Hero' })).toHaveCount(1);
+  expect((await node(page, 'Hero')).name).toBe('Hero');
+
+  const hero = page.locator('#layer-list .layer', { hasText: 'Hero' });
+  await hero.getByRole('button', { name: /Hide Hero/ }).click();
+  await expect(hero.getByRole('button', { name: /Show Hero/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(hero.getByRole('button', { name: /Hide Hero/ })).toBeVisible();
+});

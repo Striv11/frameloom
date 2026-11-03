@@ -11,6 +11,14 @@ import { CreateTool, TOOL_SHORTCUTS } from './tools/create-tool';
 import { PenTool } from './tools/pen-tool';
 import { SelectTool } from './tools/select-tool';
 import { TextTool } from './tools/text-tool';
+import {
+  layerRows,
+  moveLayer,
+  renameLayer,
+  setLayerLocked,
+  setLayerVisible,
+  type DropPlace,
+} from './tools/layers';
 import { applyField, inspect, type FieldKey } from './tools/inspector';
 
 function $<T extends HTMLElement>(id: string): T {
@@ -157,6 +165,155 @@ function boot(): void {
     }
   });
 
+  // --- Layers ---
+  const LAYER_LIMIT = 300;
+  const layersEl = $('layers');
+  const layerList = $('layer-list');
+  const collapsedLayers = new Set<string>();
+  let layersKey = '';
+  let dragLayer: string | null = null;
+  const afterLayerChange = (): void => {
+    index.rebuild();
+    select.selection.prune(doc);
+    invalidate();
+  };
+  function refreshLayers(): void {
+    const rows = layerRows(doc, collapsedLayers, LAYER_LIMIT + 1);
+    layersEl.hidden = rows.length === 0;
+    const shown = rows.slice(0, LAYER_LIMIT);
+    const sel = select.selection;
+    const key =
+      shown
+        .map(
+          (r) =>
+            `${r.id}|${r.name}|${r.depth}|${+r.visible}${+r.locked}${+r.collapsed}${+r.expandable}${+sel.has(r.id)}`,
+        )
+        .join('\n') + (rows.length > LAYER_LIMIT ? '+' : '');
+    if (key === layersKey || layerList.querySelector('.layer-name-input')) return;
+    layersKey = key;
+    layerList.replaceChildren();
+    for (const r of shown) {
+      const li = document.createElement('li');
+      li.className = 'layer';
+      li.dataset['id'] = r.id;
+      li.setAttribute('role', 'treeitem');
+      li.draggable = true;
+      li.style.paddingLeft = `${4 + r.depth * 14}px`;
+      li.classList.toggle('selected', sel.has(r.id));
+      li.classList.toggle('hidden-layer', !r.visible);
+      const mk = (cls: string, text: string, label: string, off = false): HTMLButtonElement => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = cls + (off ? ' off' : '');
+        b.textContent = text;
+        b.setAttribute('aria-label', label);
+        return b;
+      };
+      const twisty = mk('twisty', r.expandable ? (r.collapsed ? '▸' : '▾') : '', 'Expand');
+      twisty.disabled = !r.expandable;
+      twisty.addEventListener('click', () => {
+        if (collapsedLayers.has(r.id)) collapsedLayers.delete(r.id);
+        else collapsedLayers.add(r.id);
+        refreshLayers();
+      });
+      const name = document.createElement('span');
+      name.className = 'layer-name';
+      name.textContent = r.name;
+      const vis = mk(
+        'vis',
+        r.visible ? '◉' : '○',
+        `${r.visible ? 'Hide' : 'Show'} ${r.name}`,
+        !r.visible,
+      );
+      vis.addEventListener('click', () => {
+        if (setLayerVisible(doc, history, r.id, !r.visible)) afterLayerChange();
+      });
+      const lock = mk(
+        'lock',
+        r.locked ? '🔒' : '🔓',
+        `${r.locked ? 'Unlock' : 'Lock'} ${r.name}`,
+        !r.locked,
+      );
+      lock.addEventListener('click', () => {
+        if (setLayerLocked(doc, history, r.id, !r.locked)) afterLayerChange();
+      });
+      li.addEventListener('click', (e) => {
+        if (e.target instanceof HTMLButtonElement) return;
+        if (e.shiftKey) select.selection.toggle(r.id);
+        else select.selection.replace([r.id]);
+        invalidate();
+      });
+      name.addEventListener('dblclick', () => {
+        const input = document.createElement('input');
+        input.className = 'layer-name-input';
+        input.value = doc.get(r.id).name;
+        input.setAttribute('aria-label', 'Layer name');
+        let done = false;
+        const finish = (commit: boolean): void => {
+          if (done) return;
+          done = true;
+          if (commit) renameLayer(doc, history, r.id, input.value);
+          input.remove();
+          layersKey = '';
+          refreshLayers();
+          invalidate();
+        };
+        input.addEventListener('keydown', (e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') finish(true);
+          else if (e.key === 'Escape') finish(false);
+        });
+        input.addEventListener('blur', () => finish(true));
+        name.replaceWith(input);
+        input.focus();
+        input.select();
+      });
+      li.addEventListener('dragstart', (e) => {
+        dragLayer = r.id;
+        e.dataTransfer?.setData('text/plain', r.id);
+      });
+      li.addEventListener('dragend', () => {
+        dragLayer = null;
+        clearDropMarks();
+      });
+      li.addEventListener('dragover', (e) => {
+        if (!dragLayer) return;
+        e.preventDefault();
+        clearDropMarks();
+        li.classList.add(`drop-${dropPlace(li, e, r.type)}`);
+      });
+      li.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const from = dragLayer;
+        const place = dropPlace(li, e, r.type);
+        dragLayer = null;
+        clearDropMarks();
+        if (from && moveLayer(doc, history, from, r.id, place)) afterLayerChange();
+      });
+      li.append(twisty, name, vis, lock);
+      layerList.append(li);
+    }
+    if (rows.length > LAYER_LIMIT) {
+      const more = document.createElement('li');
+      more.className = 'layer-more';
+      more.textContent = `Showing the top ${LAYER_LIMIT} layers`;
+      layerList.append(more);
+    }
+  }
+  function clearDropMarks(): void {
+    for (const el of layerList.querySelectorAll('.drop-above,.drop-below,.drop-inside')) {
+      el.classList.remove('drop-above', 'drop-below', 'drop-inside');
+    }
+  }
+  /** Top quarter = above, bottom quarter = below, middle of a container = inside. */
+  function dropPlace(li: HTMLElement, e: DragEvent, type: string): DropPlace {
+    const box = li.getBoundingClientRect();
+    const t = (e.clientY - box.top) / Math.max(box.height, 1);
+    const container = type === 'frame' || type === 'group';
+    if (container && t > 0.25 && t < 0.75) return 'inside';
+    return t < 0.5 ? 'above' : 'below';
+  }
+
   // --- Inspector ---
   const panel = $('inspector');
   const LABELS: Record<FieldKey, string> = {
@@ -245,6 +402,7 @@ function boot(): void {
     if (dirty) {
       dirty = false;
       refreshInspector();
+      refreshLayers();
       placeEditor();
       const t0 = performance.now();
       renderer.resize();
