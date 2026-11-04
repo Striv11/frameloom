@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SceneDocument } from '../src/model/document';
+import { History } from '../src/model/history';
 import { applyToPoint } from '../src/model/matrix';
 import { Camera } from '../src/render/camera';
 import { SceneIndex } from '../src/spatial/scene-index';
@@ -221,5 +222,74 @@ describe('topLevelOnly', () => {
     const g = doc.add('group', {});
     const k = doc.add('rect', {}, g.id).id;
     expect(topLevelOnly(doc, [g.id, k, a])).toEqual([g.id, a]);
+  });
+});
+
+describe('drop to reparent', () => {
+  it('drops a dragged shape into a frame, keeping its world position, as one undo step', () => {
+    const history = new History(doc);
+    const frame = doc.add('frame', { x: 400, y: 400, width: 300, height: 300 }).id;
+    index.rebuild();
+    const t = new SelectTool(doc, index, camera, () => undefined, history);
+    t.pointerDown({ x: 50, y: 50 }, no);
+    t.pointerMove({ x: 450, y: 450 }, no);
+    t.pointerUp();
+    expect(doc.get(a).parentId).toBe(frame);
+    expect(applyToPoint(doc.worldMatrix(a), { x: 0, y: 0 })).toEqual({ x: 400, y: 400 });
+    history.undo();
+    expect(doc.get(a).parentId).toBe('root');
+    expect(doc.get(a)).toMatchObject({ x: 0, y: 0 });
+    expect(doc.get(frame).children).toEqual([]);
+    history.redo();
+    expect(doc.get(a).parentId).toBe(frame);
+    expect(doc.get(a)).toMatchObject({ x: 0, y: 0 });
+  });
+
+  it('keeps world transform when dropping into a rotated frame', () => {
+    const frame = doc.add('frame', {
+      x: 600,
+      y: 0,
+      width: 300,
+      height: 300,
+      rotation: Math.PI / 6,
+    }).id;
+    index.rebuild();
+    const before = applyToPoint(doc.worldMatrix(b), { x: 0, y: 0 });
+    const t = new SelectTool(doc, index, camera, () => undefined, new History(doc));
+    t.pointerDown({ x: 250, y: 50 }, no);
+    t.pointerMove({ x: 700, y: 100 }, no);
+    t.pointerUp();
+    expect(doc.get(b).parentId).toBe(frame);
+    const after = applyToPoint(doc.worldMatrix(b), { x: 0, y: 0 });
+    expect(after.x).toBeCloseTo(before.x + 450, 6);
+    expect(after.y).toBeCloseTo(before.y + 50, 6);
+  });
+
+  it('drops out of a frame onto the canvas', () => {
+    const frame = doc.add('frame', { x: 400, y: 400, width: 300, height: 300 }).id;
+    const inner = doc.add('rect', { x: 10, y: 10, width: 50, height: 50 }, frame).id;
+    index.rebuild();
+    const history = new History(doc);
+    const t = new SelectTool(doc, index, camera, () => undefined, history);
+    t.pointerDown({ x: 430, y: 430 }, no);
+    t.pointerMove({ x: 1000, y: 1000 }, no);
+    t.pointerUp();
+    expect(doc.get(inner).parentId).toBe('root');
+    expect(applyToPoint(doc.worldMatrix(inner), { x: 0, y: 0 })).toEqual({ x: 980, y: 980 });
+    history.undo();
+    expect(doc.get(inner).parentId).toBe(frame);
+    expect(doc.get(inner)).toMatchObject({ x: 10, y: 10 });
+  });
+
+  it('does not reparent on a plain click or into a frame being moved', () => {
+    const frame = doc.add('frame', { x: 0, y: 0, width: 500, height: 500 }).id;
+    index.rebuild();
+    tool.pointerDown({ x: 250, y: 50 }, no);
+    tool.pointerUp();
+    expect(doc.get(b).parentId).toBe('root');
+    tool.pointerDown({ x: 250, y: 450 }, no); // empty part of the frame: selects the frame
+    tool.pointerMove({ x: 260, y: 460 }, no);
+    tool.pointerUp();
+    expect(doc.get(frame).parentId).toBe('root');
   });
 });

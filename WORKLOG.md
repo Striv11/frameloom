@@ -85,3 +85,11 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: when inserting the group before lifting members out, the insert index must be computed against the original child list (top member index + 1), not the filtered one.
 - Day 8 stays `[~]`: still to do is drop-to-reparent when dragging on the canvas (drop a moved shape into a frame, using `keepWorldPatch`), plus an e2e for Ctrl+G.
 - Next: canvas drop-to-reparent, then Day 9 snapping.
+
+## 2026-11-04 — Day 8, part 2 (drop-to-reparent)
+
+- `SelectTool` now reparents on move release: the target is the topmost visible, unlocked frame under the pointer that is not part of the moved selection, else the root. Uses `keepWorldPatch`, so world transforms survive rotated frames. Only nodes directly under the root or a frame move between containers (group members stay); a click without movement never reparents.
+- The reparent is folded into the same history record as the move (redo: reparent + final placement; undo: restore placement + original parent and index), so it is one undo step.
+- Tests: 4 new (drop into frame with undo/redo, rotated frame, drop out to canvas, no reparent on click or when moving a frame). 160 unit tests pass. Still no e2e run (no Chromium here); no e2e for Ctrl+G or drop was written.
+- Learned: the tool only commits when a `History` is injected, so tests of committed behavior must pass one.
+- Day 8 done. Next: Day 9 snapping and alignment guides (snap solver, 8px screen threshold, align/distribute).

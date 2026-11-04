@@ -1,10 +1,18 @@
-import type { SceneDocument } from '../model/document';
+import { ROOT_ID, type SceneDocument } from '../model/document';
 import type { History, Op } from '../model/history';
-import { IDENTITY, type Matrix, type Point, type Rect } from '../model/matrix';
+import {
+  applyToPoint,
+  IDENTITY,
+  invert,
+  type Matrix,
+  type Point,
+  type Rect,
+} from '../model/matrix';
 import type { NodeId } from '../model/types';
 import type { Camera } from '../render/camera';
 import type { SceneIndex } from '../spatial/scene-index';
 import { hitHandle, selectionFrame, type SelectionFrame } from './handles';
+import { keepWorldPatch } from './grouping';
 import { marqueeSelect, pickAt, Selection, topLevelOnly } from './selection';
 import { movePatch, resizePatch, rotatePatch, type Box, type ResizeHandle } from './transform';
 
@@ -19,7 +27,7 @@ interface Snapshot {
 }
 
 type Drag =
-  | { kind: 'move'; origin: Point; items: Snapshot[] }
+  | { kind: 'move'; origin: Point; items: Snapshot[]; last: Point }
   | { kind: 'resize'; handle: ResizeHandle; item: Snapshot }
   | { kind: 'rotate'; origin: Point; item: Snapshot }
   | { kind: 'marquee'; origin: Point; base: NodeId[] };
@@ -83,6 +91,7 @@ export class SelectTool {
       this.drag = {
         kind: 'move',
         origin: world,
+        last: world,
         items: topLevelOnly(this.doc, this.selection.ids).map((id) => this.snapshot(id)),
       };
     } else {
@@ -106,6 +115,7 @@ export class SelectTool {
     }
     switch (drag.kind) {
       case 'move': {
+        drag.last = world;
         const delta = { x: world.x - drag.origin.x, y: world.y - drag.origin.y };
         for (const s of drag.items) {
           this.apply(s.id, movePatch(s.box, s.parentWorld, delta));
@@ -174,9 +184,40 @@ export class SelectTool {
     const items = drag.kind === 'move' ? drag.items : [drag.item];
     const redo: Op[] = [];
     const undo: Op[] = [];
+    const target =
+      drag.kind === 'move' && (drag.last.x !== drag.origin.x || drag.last.y !== drag.origin.y)
+        ? this.dropTarget(drag)
+        : null;
     for (const s of items) {
       const n = this.doc.find(s.id);
       if (!n) continue;
+      const oldParent = n.parentId;
+      if (
+        target !== null &&
+        oldParent !== null &&
+        oldParent !== target &&
+        this.canReparent(s.id, oldParent)
+      ) {
+        const oldIndex = this.doc.get(oldParent).children.indexOf(s.id);
+        const patch = keepWorldPatch(this.doc, s.id, target);
+        this.doc.reparent(s.id, target);
+        if (patch) this.doc.update(s.id, patch);
+        this.index.refresh(s.id);
+        const final = this.doc.get(s.id);
+        redo.push(
+          { kind: 'reparent', id: s.id, parentId: target },
+          {
+            kind: 'update',
+            id: s.id,
+            patch: { x: final.x, y: final.y, rotation: final.rotation },
+          },
+        );
+        undo.unshift(
+          { kind: 'update', id: s.id, patch: { x: s.box.x, y: s.box.y, rotation: s.box.rotation } },
+          { kind: 'reparent', id: s.id, parentId: oldParent, index: oldIndex },
+        );
+        continue;
+      }
       const after: Partial<Box> = {};
       const before: Partial<Box> = {};
       for (const k of ['x', 'y', 'width', 'height', 'rotation'] as const) {
@@ -192,6 +233,30 @@ export class SelectTool {
     if (redo.length === 0) return;
     const label = drag.kind === 'move' ? 'Move' : drag.kind === 'resize' ? 'Resize' : 'Rotate';
     this.history.record(label, { kind: 'batch', ops: redo }, { kind: 'batch', ops: undo });
+  }
+
+  /** Only nodes directly in a frame or the root move between containers; group members stay put. */
+  private canReparent(id: NodeId, parentId: NodeId): boolean {
+    if (id === ROOT_ID) return false;
+    return parentId === ROOT_ID || this.doc.get(parentId).type === 'frame';
+  }
+
+  /**
+   * The frame (or root) under the pointer where a finished move drops its nodes: the topmost
+   * visible, unlocked frame containing the point that is not part of the moved selection.
+   */
+  private dropTarget(drag: Extract<Drag, { kind: 'move' }>): NodeId {
+    const moved = drag.items.map((s) => s.id);
+    let best: NodeId = ROOT_ID;
+    for (const n of this.doc.paintOrder()) {
+      if (n.type !== 'frame' || !n.visible || n.locked) continue;
+      if (moved.some((m) => this.doc.isAncestorOrSelf(m, n.id))) continue;
+      const inv = invert(this.doc.worldMatrix(n.id));
+      if (!inv) continue;
+      const q = applyToPoint(inv, drag.last);
+      if (q.x >= 0 && q.y >= 0 && q.x <= n.width && q.y <= n.height) best = n.id;
+    }
+    return best;
   }
 
   private snapshot(id: NodeId): Snapshot {
