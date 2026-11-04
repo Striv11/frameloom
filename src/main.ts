@@ -4,6 +4,7 @@ import { Camera } from './render/camera';
 import { Canvas2DRenderer, DARK, LIGHT } from './render/canvas2d';
 import { applyToPoint, type Point } from './model/matrix';
 import { drawOverlay } from './render/overlay';
+import { groupNodes, ungroupNodes } from './tools/grouping';
 import { History } from './model/history';
 import { SceneIndex } from './spatial/scene-index';
 import { selectionFrame } from './tools/handles';
@@ -76,6 +77,21 @@ function boot(): void {
     if (!history[dir]()) return;
     index.rebuild();
     tool.selection.prune(doc);
+    invalidate();
+  };
+  const regroup = (ungroup: boolean): void => {
+    if (create.dragging || tool.dragging || pen.active) return;
+    const ids = tool.selection.ids;
+    if (ungroup) {
+      const freed = ungroupNodes(doc, history, ids);
+      if (freed.length === 0) return;
+      tool.selection.replace(freed);
+    } else {
+      const gid = groupNodes(doc, history, ids);
+      if (!gid) return;
+      tool.selection.replace([gid]);
+    }
+    index.rebuild();
     invalidate();
   };
   const create = new CreateTool(
@@ -568,6 +584,7 @@ function boot(): void {
       const k = e.key.toLowerCase();
       if (k === 'z') stepHistory(e.shiftKey ? 'redo' : 'undo');
       else if (k === 'y') stepHistory('redo');
+      else if (k === 'g') regroup(e.shiftKey);
       else return;
       e.preventDefault();
       return;
@@ -637,6 +654,7 @@ function boot(): void {
     history,
     textTool,
     stepHistory,
+    regroup,
     setTool,
     invalidate,
   };

@@ -76,3 +76,12 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: `reparent`'s index is counted after detaching, so "drop below" in the same parent needs the sibling list filtered of the dragged node first.
 - Limits: no keyboard reordering in the panel, native drag-and-drop isn't touch-friendly, names/ids of descendants of a hidden parent aren't dimmed.
 - Day 7 is complete. Next (Day 8): multi-select, Ctrl+G group/ungroup, frame clipping, drop-to-reparent on the canvas (reuse `moveLayer`'s world-preserving logic, extended to rotated parents), mixed-value inspector is already done.
+
+## 2026-11-04 — Day 8, part 1 (grouping, world-preserving reparent)
+
+- Added `src/tools/grouping.ts`. `placementIn`/`keepWorldPatch` solve "same world transform under another parent" as `inverse(parentWorld) · world`, decomposed into x/y/rotation; this is exact because nodes never scale or skew. `moveLayer` now uses it, which removes the old restriction that refused moves into or out of rotated parents.
+- `groupNodes` (Ctrl/⌘+G) wraps top-level selected nodes in a group sized to their bounds in the parent's space, placed at the topmost member's stacking position, members keeping relative order. `ungroupNodes` (Ctrl/⌘+Shift+G) frees children in place; nested selected groups stay intact inside an outer one. Both are a single undo batch.
+- Tests: 10 new unit tests (grouping, ungrouping, rotated frames, undo/redo) and the layers test for rotated parents was changed from "rejects" to "preserves world transform" because that behavior was intentionally replaced. All 156 unit tests pass in `check.sh`. No e2e written or run (Chromium still not installed here).
+- Learned: when inserting the group before lifting members out, the insert index must be computed against the original child list (top member index + 1), not the filtered one.
+- Day 8 stays `[~]`: still to do is drop-to-reparent when dragging on the canvas (drop a moved shape into a frame, using `keepWorldPatch`), plus an e2e for Ctrl+G.
+- Next: canvas drop-to-reparent, then Day 9 snapping.
