@@ -110,7 +110,7 @@ describe('moveLayer', () => {
     expect(moveLayer(doc, history, k.id, id('a'), 'below')).toBe(true);
     expect(doc.get(k.id)).toMatchObject({ parentId: ROOT_ID, x: 105, y: 56 });
   });
-  it('rejects cycles, non-containers, the root and rotated parents', () => {
+  it('rejects cycles, non-containers and the root', () => {
     const f = doc.add('frame', { name: 'f' });
     const g = doc.add('frame', { name: 'g' }, f.id);
     expect(moveLayer(doc, history, f.id, g.id, 'inside')).toBe(false);
@@ -118,8 +118,17 @@ describe('moveLayer', () => {
     expect(moveLayer(doc, history, id('a'), id('b'), 'inside')).toBe(false);
     expect(moveLayer(doc, history, ROOT_ID, id('a'), 'above')).toBe(false);
     expect(moveLayer(doc, history, id('a'), ROOT_ID, 'below')).toBe(false);
-    doc.update(f.id, { rotation: 0.5 });
-    expect(moveLayer(doc, history, id('a'), f.id, 'inside')).toBe(false);
     expect(history.canUndo).toBe(false);
+  });
+  it('keeps the world transform when dropping into a rotated frame', () => {
+    const f = doc.add('frame', { name: 'f', x: 300, y: 40, rotation: 0.5 });
+    const a = id('a');
+    const before = doc.worldMatrix(a);
+    expect(moveLayer(doc, history, a, f.id, 'inside')).toBe(true);
+    const after = doc.worldMatrix(a);
+    before.forEach((v, i) => expect(after[i]).toBeCloseTo(v, 9));
+    expect(doc.get(a).rotation).toBeCloseTo(-0.5, 9);
+    history.undo();
+    expect(doc.get(a)).toMatchObject({ parentId: ROOT_ID, rotation: 0 });
   });
 });

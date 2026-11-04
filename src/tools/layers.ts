@@ -1,5 +1,6 @@
 import { ROOT_ID, type SceneDocument } from '../model/document';
 import type { History, Op } from '../model/history';
+import { keepWorldPatch } from './grouping';
 import { CONTAINER_TYPES, type NodeId, type NodeType } from '../model/types';
 
 export interface LayerRow {
@@ -84,9 +85,6 @@ export function setLayerLocked(
   return true;
 }
 
-const isTranslationOnly = (m: readonly number[]): boolean =>
-  m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1;
-
 /**
  * Plans a drag-drop of `id` relative to `targetId`: the new parent and the child index
  * (counted after `id` is detached), or `null` if the drop is invalid.
@@ -115,8 +113,7 @@ function planMove(
 
 /**
  * Moves a layer above/below another or into a container, as one undo step. The node keeps
- * its world position; that is only expressible without compensating rotation when neither
- * the old nor the new parent chain is rotated, so other cross-parent moves are refused.
+ * its world transform (position and rotation), also across rotated parents.
  */
 export function moveLayer(
   doc: SceneDocument,
@@ -127,21 +124,14 @@ export function moveLayer(
 ): boolean {
   const plan = planMove(doc, id, targetId, place);
   if (!plan) return false;
-  const node = doc.get(id);
-  const oldParent = node.parentId ?? ROOT_ID;
+  const oldParent = doc.get(id).parentId ?? ROOT_ID;
   const ops: Op[] = [];
   if (plan.parentId === oldParent) {
     const current = doc.get(oldParent).children.indexOf(id);
     if (current === plan.index) return false;
   } else {
-    const from = doc.worldMatrix(oldParent);
-    const to = doc.worldMatrix(plan.parentId);
-    if (!isTranslationOnly(from) || !isTranslationOnly(to)) return false;
-    const dx = from[4] - to[4];
-    const dy = from[5] - to[5];
-    if (dx !== 0 || dy !== 0) {
-      ops.push({ kind: 'update', id, patch: { x: node.x + dx, y: node.y + dy } });
-    }
+    const patch = keepWorldPatch(doc, id, plan.parentId);
+    if (patch) ops.push({ kind: 'update', id, patch });
   }
   ops.push({ kind: 'reparent', id, parentId: plan.parentId, index: plan.index });
   history.apply('Move layer', { kind: 'batch', ops });
