@@ -93,3 +93,13 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Tests: 4 new (drop into frame with undo/redo, rotated frame, drop out to canvas, no reparent on click or when moving a frame). 160 unit tests pass. Still no e2e run (no Chromium here); no e2e for Ctrl+G or drop was written.
 - Learned: the tool only commits when a `History` is injected, so tests of committed behavior must pass one.
 - Day 8 done. Next: Day 9 snapping and alignment guides (snap solver, 8px screen threshold, align/distribute).
+
+## 2026-11-05 — Day 9 (snapping, alignment)
+
+- Added `src/tools/snap.ts` (pure): `solveSnap` snaps a moving rect per axis to sibling/frame edges and centers and to equal spacing (after, before, centered between a pair), threshold `8px / zoom`, and returns guides for everything that lines up exactly at the snapped position.
+- `SelectTool` snaps moves using the start-of-drag union bounds plus the raw pointer delta (so snap never feeds back on itself), considers only the 24 nearest visible siblings found through the R-tree plus the parent frame, exposes `guides`, and Alt bypasses. The overlay draws dashed alignment lines and solid spacing ones.
+- Added `src/tools/align.ts`: align (to selection bounds; a lone child aligns to its frame) and distribute (equal gaps), each one undo step and correct under rotated parents; Alt+A/D/W/S/H/V and Alt+Shift+H/V shortcuts.
+- Tests: 13 new (solver, tool integration incl. zoom-independent threshold, Alt bypass, undo, align/distribute). 173 unit tests pass. The drop-to-reparent tests now set `snapEnabled = false`, since they assert raw drag geometry. No e2e run (no Chromium here); the keyboard shortcuts and guide rendering are therefore unverified in a browser.
+- Learned: snap against the raw (unsnapped) delta each move, not the live node position, otherwise the shape sticks.
+- Limits: snapping applies to moves only (not resize/rotate), siblings only, no toolbar buttons for align yet.
+- Next (Day 10): CRDT core.
