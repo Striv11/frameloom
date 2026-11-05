@@ -6,6 +6,7 @@ import {
   invert,
   type Matrix,
   type Point,
+  unionRect,
   type Rect,
 } from '../model/matrix';
 import type { NodeId } from '../model/types';
@@ -14,10 +15,13 @@ import type { SceneIndex } from '../spatial/scene-index';
 import { hitHandle, selectionFrame, type SelectionFrame } from './handles';
 import { keepWorldPatch } from './grouping';
 import { marqueeSelect, pickAt, Selection, topLevelOnly } from './selection';
+import { solveSnap, SNAP_THRESHOLD_PX, type SnapGuide } from './snap';
 import { movePatch, resizePatch, rotatePatch, type Box, type ResizeHandle } from './transform';
 
 export interface Modifiers {
   shift: boolean;
+  /** Alt/Option held: temporarily disables snapping. */
+  alt?: boolean;
 }
 
 interface Snapshot {
@@ -27,7 +31,7 @@ interface Snapshot {
 }
 
 type Drag =
-  | { kind: 'move'; origin: Point; items: Snapshot[]; last: Point }
+  | { kind: 'move'; origin: Point; items: Snapshot[]; last: Point; bounds: Rect }
   | { kind: 'resize'; handle: ResizeHandle; item: Snapshot }
   | { kind: 'rotate'; origin: Point; item: Snapshot }
   | { kind: 'marquee'; origin: Point; base: NodeId[] };
@@ -43,6 +47,10 @@ export class SelectTool {
   /** Marquee rectangle in world space while one is being dragged. */
   marquee: Rect | null = null;
   hover: NodeId | null = null;
+  /** Snap guides (world space) while a move is being dragged. */
+  guides: SnapGuide[] = [];
+  /** Snap moves to sibling edges/centers and equal spacing (8 screen px). */
+  snapEnabled = true;
   private drag: Drag | null = null;
 
   constructor(
@@ -88,11 +96,15 @@ export class SelectTool {
       }
       if (mods.shift) this.selection.add(hit);
       else if (!this.selection.has(hit)) this.selection.replace([hit]);
+      const items = topLevelOnly(this.doc, this.selection.ids).map((id) => this.snapshot(id));
+      let bounds: Rect | null = null;
+      for (const s of items) bounds = unionRect(bounds, this.doc.worldBounds(s.id));
       this.drag = {
         kind: 'move',
         origin: world,
         last: world,
-        items: topLevelOnly(this.doc, this.selection.ids).map((id) => this.snapshot(id)),
+        items,
+        bounds: bounds ?? { x: 0, y: 0, width: 0, height: 0 },
       };
     } else {
       const base = mods.shift ? this.selection.ids : [];
@@ -117,6 +129,13 @@ export class SelectTool {
       case 'move': {
         drag.last = world;
         const delta = { x: world.x - drag.origin.x, y: world.y - drag.origin.y };
+        this.guides = [];
+        if (this.snapEnabled && !mods.alt) {
+          const snap = this.snapMove(drag, delta);
+          delta.x += snap.dx;
+          delta.y += snap.dy;
+          this.guides = snap.guides;
+        }
         for (const s of drag.items) {
           this.apply(s.id, movePatch(s.box, s.parentWorld, delta));
         }
@@ -165,6 +184,7 @@ export class SelectTool {
     this.commit(drag);
     this.drag = null;
     this.marquee = null;
+    this.guides = [];
     this.onChange();
   }
 
@@ -257,6 +277,45 @@ export class SelectTool {
       if (q.x >= 0 && q.y >= 0 && q.x <= n.width && q.y <= n.height) best = n.id;
     }
     return best;
+  }
+
+  /** Snap correction for the moving union box against nearby siblings and the parent frame. */
+  private snapMove(drag: Extract<Drag, { kind: 'move' }>, delta: Point) {
+    const union: Rect = {
+      ...drag.bounds,
+      x: drag.bounds.x + delta.x,
+      y: drag.bounds.y + delta.y,
+    };
+    const first = this.doc.get(drag.items[0]!.id);
+    const parentId = first.parentId ?? ROOT_ID;
+    const moved = new Set(drag.items.map((s) => s.id));
+    const reach = (SNAP_THRESHOLD_PX + 240) / this.camera.zoom;
+    const area = {
+      x: union.x - reach,
+      y: union.y - reach,
+      width: union.width + 2 * reach,
+      height: union.height + 2 * reach,
+    };
+    const cx = union.x + union.width / 2;
+    const cy = union.y + union.height / 2;
+    const near = this.index
+      .query(area)
+      .filter((id) => {
+        if (moved.has(id)) return false;
+        const n = this.doc.get(id);
+        return n.parentId === parentId && n.visible;
+      })
+      .map((id) => this.doc.worldBounds(id))
+      .sort(
+        (a, b) =>
+          Math.hypot(a.x + a.width / 2 - cx, a.y + a.height / 2 - cy) -
+          Math.hypot(b.x + b.width / 2 - cx, b.y + b.height / 2 - cy),
+      )
+      .slice(0, 24);
+    if (parentId !== ROOT_ID && this.doc.get(parentId).type === 'frame') {
+      near.push(this.doc.worldBounds(parentId));
+    }
+    return solveSnap(union, near, SNAP_THRESHOLD_PX / this.camera.zoom);
   }
 
   private snapshot(id: NodeId): Snapshot {

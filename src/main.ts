@@ -10,6 +10,7 @@ import { SceneIndex } from './spatial/scene-index';
 import { selectionFrame } from './tools/handles';
 import { CreateTool, TOOL_SHORTCUTS } from './tools/create-tool';
 import { PenTool } from './tools/pen-tool';
+import { alignNodes, distributeNodes, type AlignMode } from './tools/align';
 import { SelectTool } from './tools/select-tool';
 import { TextTool } from './tools/text-tool';
 import {
@@ -400,6 +401,7 @@ function boot(): void {
       frame: tool.frame(),
       outlines: ids.length > 1 ? ids.flatMap((id) => selectionFrame(doc, [id]) ?? []) : [],
       marquee: tool.marquee,
+      guides: tool.guides,
       pen: pen.preview(),
       hover:
         tool.hover && !tool.dragging && !tool.selection.has(tool.hover) && doc.has(tool.hover)
@@ -472,7 +474,10 @@ function boot(): void {
       mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
     };
   };
-  const mods = (e: PointerEvent): { shift: boolean } => ({ shift: e.shiftKey });
+  const mods = (e: PointerEvent): { shift: boolean; alt: boolean } => ({
+    shift: e.shiftKey,
+    alt: e.altKey,
+  });
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, local(e));
@@ -587,6 +592,29 @@ function boot(): void {
       else if (k === 'g') regroup(e.shiftKey);
       else return;
       e.preventDefault();
+      return;
+    }
+    if (e.altKey && !e.metaKey && !e.ctrlKey && active === 'select' && !tool.dragging) {
+      const ids = tool.selection.ids;
+      const aligns: Record<string, AlignMode> = {
+        KeyA: 'left',
+        KeyD: 'right',
+        KeyW: 'top',
+        KeyS: 'bottom',
+        KeyH: 'hcenter',
+        KeyV: 'vcenter',
+      };
+      const mode = aligns[e.code];
+      let changed: boolean;
+      if (e.shiftKey && (e.code === 'KeyH' || e.code === 'KeyV'))
+        changed = distributeNodes(doc, history, ids, e.code === 'KeyH' ? 'x' : 'y');
+      else if (mode && !e.shiftKey) changed = alignNodes(doc, history, ids, mode);
+      else return;
+      e.preventDefault();
+      if (changed) {
+        for (const id of ids) index.refresh(id);
+        invalidate();
+      }
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey) return;

@@ -231,6 +231,7 @@ describe('drop to reparent', () => {
     const frame = doc.add('frame', { x: 400, y: 400, width: 300, height: 300 }).id;
     index.rebuild();
     const t = new SelectTool(doc, index, camera, () => undefined, history);
+    t.snapEnabled = false; // these tests assert raw drag geometry, not snapping
     t.pointerDown({ x: 50, y: 50 }, no);
     t.pointerMove({ x: 450, y: 450 }, no);
     t.pointerUp();
@@ -256,6 +257,7 @@ describe('drop to reparent', () => {
     index.rebuild();
     const before = applyToPoint(doc.worldMatrix(b), { x: 0, y: 0 });
     const t = new SelectTool(doc, index, camera, () => undefined, new History(doc));
+    t.snapEnabled = false; // these tests assert raw drag geometry, not snapping
     t.pointerDown({ x: 250, y: 50 }, no);
     t.pointerMove({ x: 700, y: 100 }, no);
     t.pointerUp();
@@ -271,6 +273,7 @@ describe('drop to reparent', () => {
     index.rebuild();
     const history = new History(doc);
     const t = new SelectTool(doc, index, camera, () => undefined, history);
+    t.snapEnabled = false; // these tests assert raw drag geometry, not snapping
     t.pointerDown({ x: 430, y: 430 }, no);
     t.pointerMove({ x: 1000, y: 1000 }, no);
     t.pointerUp();

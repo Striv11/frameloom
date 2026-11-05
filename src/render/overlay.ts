@@ -2,6 +2,7 @@ import { applyToPoint, type Matrix, type Point, type Rect } from '../model/matri
 import type { PathAnchor } from '../model/path';
 import type { Camera } from './camera';
 import type { Theme } from './canvas2d';
+import type { SnapGuide } from '../tools/snap';
 import { handlePoints, type SelectionFrame } from '../tools/handles';
 
 export interface OverlayState {
@@ -9,6 +10,8 @@ export interface OverlayState {
   /** Outline frames for individually selected nodes when several are selected. */
   outlines: SelectionFrame[];
   marquee: Rect | null;
+  /** Snap guides in world space, drawn while dragging. */
+  guides?: readonly SnapGuide[];
   hover: SelectionFrame | null;
   /** In-progress pen path: anchors in the space of `matrix` (local -> world). */
   pen?: { anchors: readonly PathAnchor[]; matrix: Matrix } | null;
@@ -74,6 +77,22 @@ export function drawOverlay(
       ctx.fill();
       ctx.stroke();
     }
+  }
+  if (state.guides?.length) {
+    ctx.strokeStyle = theme.accent;
+    ctx.setLineDash([4, 3]);
+    for (const g of state.guides) {
+      const a = g.axis === 'x' ? { x: g.pos, y: g.from } : { x: g.from, y: g.pos };
+      const b = g.axis === 'x' ? { x: g.pos, y: g.to } : { x: g.to, y: g.pos };
+      const sa = camera.worldToScreen(a);
+      const sb = camera.worldToScreen(b);
+      ctx.setLineDash(g.kind === 'spacing' ? [] : [4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(Math.round(sa.x) + 0.5, Math.round(sa.y) + 0.5);
+      ctx.lineTo(Math.round(sb.x) + 0.5, Math.round(sb.y) + 0.5);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
   }
   if (state.marquee) {
     const a = camera.worldToScreen({ x: state.marquee.x, y: state.marquee.y });
