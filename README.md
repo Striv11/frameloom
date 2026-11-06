@@ -56,6 +56,8 @@ Everything is original code with no third-party runtime dependencies.
 - `src/tools/grouping.ts`: `placementIn`/`keepWorldPatch` compute the x/y/rotation a node needs under a new parent to keep its exact world transform (valid because the model only translates and rotates), so reparenting works under rotated parents. `groupNodes` wraps top-level selected nodes in a group at the topmost member's stacking position; `ungroupNodes` dissolves groups in place. Each is one undo step.
 - `src/tools/snap.ts`: pure snap solver. `solveSnap` finds the smallest per-axis correction (threshold `8px / zoom`) that aligns the moving box's edges/centers with nearby siblings or the parent frame, or gives it the same gap as a pair of static rects (after, before, or centered between), and returns the guide lines. `SelectTool` applies it to moves (nearest 24 siblings from the R-tree, so 10k shapes stay cheap); hold Alt to disable.
 - `src/tools/align.ts`: `alignNodes` (to the selection bounds, or a lone child to its parent frame) and `distributeNodes` (equal gaps, outer two fixed); both work in world space through `movePatch`, so rotated parents are fine, and are one undo step.
+- `src/crdt/fractional.ts`: base-62 fractional indexing (`between`, `betweenMany`): a sort key always exists between any two keys, so inserts never renumber siblings.
+- `src/crdt/replica.ts`: the CRDT core. Every edit is one op type, "write register `key` of node `id` at Lamport stamp", and a register keeps the highest stamp, so merging is commutative, associative and idempotent: any delivery order, duplication or delay converges, with no causal-delivery requirement. Properties are last-writer-wins per (node, property); parent+position is one register (fractional key), deletion is a tombstone register (restore wins if newer; a child added to a concurrently deleted parent disappears with it); concurrent moves that form a cycle are broken by attaching the smallest id on the cycle to the root. `toDocument()` materializes the winner as a `SceneDocument`. Not wired into the UI yet (Day 11).
 - `src/model/history.ts`: invertible `Op`s (`add` subtree, `remove`, `update`, `reparent`, `batch`); `applyOp` executes an op and returns its exact inverse, so there is no per-kind undo code. `History` keeps undo/redo stacks (limit 500); `apply` runs an op, `record` logs a change a tool already made live, so a whole drag is one step. Same-key entries merge until an undo/redo seals them.
 - `src/render/overlay.ts`: screen-space selection, hover, handles and marquee painted after the scene.
 - `src/render/camera.ts`: world ↔ screen mapping with cursor-anchored zoom.
@@ -98,7 +100,8 @@ See [PLAN.md](PLAN.md) for the 14-day plan with acceptance criteria.
 - [x] Text, layers panel, inspector
 - [x] Grouping, frames
 - [x] Snapping, alignment guides, align/distribute
-- [ ] CRDT, multi-tab collaboration, IndexedDB
+- [x] CRDT core (Day 10)
+- [ ] Multi-tab collaboration, IndexedDB
 - [ ] Components, export, command palette, WebGL2
 - [ ] Landing, onboarding, benchmark, release
 

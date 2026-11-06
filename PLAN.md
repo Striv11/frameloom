@@ -15,7 +15,7 @@ Fourteen-day arc. Every milestone has acceptance criteria that can be checked by
 
 | 8 | Multi-select, grouping, frames | Group/ungroup (Ctrl+G), frames with clipping and drop-to-reparent, multi-select inspector with mixed values; tests for reparent preserving world transform | [x] group/ungroup, world-preserving reparent (incl. rotated parents), clipping, mixed inspector and canvas drop-to-reparent |
 | 9 | Snapping and alignment guides | Snap to edges/centers of siblings and frame, equal spacing hints, 8px screen threshold; align/distribute commands; unit tests on snap solver | [x] snap solver (edges, centers, equal spacing), move integration with guides, align/distribute commands |
-| 10 | CRDT core | From-scratch op-based CRDT (LWW registers per property, fractional-index ordering, tombstones); convergence property test over random interleavings of 3 replicas | [ ] |
+| 10 | CRDT core | From-scratch op-based CRDT (LWW registers per property, fractional-index ordering, tombstones); convergence property test over random interleavings of 3 replicas | [x] register-based LWW CRDT, fractional index, tombstones, cycle-safe moves, 200-seed convergence test |
 | 11 | Multi-tab collaboration and persistence | BroadcastChannel transport, presence cursors, IndexedDB persistence with load on start; Playwright two-page test sees edits both ways and survives reload | [ ] |
 | 12 | Components, instances, overrides | Make component, instantiate, override fill/text per instance, propagate master edits; undo-safe; unit and e2e tests | [ ] |
 | 13 | Export, command palette, shortcuts, WebGL2 | SVG and PNG export (golden-file test for SVG); command palette (Ctrl+K) with fuzzy search; shortcut sheet; WebGL2 renderer behind a flag with Canvas2D fallback | [ ] |

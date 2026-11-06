@@ -103,3 +103,11 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: snap against the raw (unsnapped) delta each move, not the live node position, otherwise the shape sticks.
 - Limits: snapping applies to moves only (not resize/rotate), siblings only, no toolbar buttons for align yet.
 - Next (Day 10): CRDT core.
+
+## 2026-11-06 — Day 10 (CRDT core)
+
+- Added `src/crdt/fractional.ts` (base-62 fractional indexing) and `src/crdt/replica.ts`. Design: a single op type, "write register (node, key) = value at Lamport stamp (counter, replica)", highest stamp wins. That makes merge commutative/idempotent, so there is no causal-delivery requirement: ops for a node may arrive before its creation. Parent+position is one register, deletion is a tombstone register, and `toDocument()` derives the visible `SceneDocument` (hidden under tombstoned/non-container parents; cycles from concurrent moves broken by attaching the smallest id on the cycle to the root).
+- Tests: 12 new in `tests/crdt.test.ts` — fractional index bounds over 2000 random inserts, LWW semantics, idempotence/out-of-order, delete/restore, concurrent add under deleted parent, cycle breaking, same-index inserts, snapshot rebuild, and a 200-seed convergence test (3 replicas, random create/set/move/remove/restore, shuffled partial delivery with duplicates, plus a fresh replica fed all ops shuffled).
+- Learned: a node can be "live" (type arrived) before its parent register does, so sort-key neighbours must ignore key-less siblings, and equal keys from concurrent inserts need skipping when picking the upper bound.
+- Limits: not connected to `History`/UI yet (local tool edits don't emit ops); no garbage collection of tombstones; no per-replica op log or state vector, so peers sync by exchanging `snapshot()`.
+- Next (Day 11): BroadcastChannel transport, bridge `History` ops to CRDT ops, presence cursors, IndexedDB persistence.
