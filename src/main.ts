@@ -3,7 +3,11 @@ import { createDemoDocument, createStressDocument } from './app/demo';
 import { Camera } from './render/camera';
 import { Canvas2DRenderer, DARK, LIGHT } from './render/canvas2d';
 import { applyToPoint, type Point } from './model/matrix';
-import { drawOverlay } from './render/overlay';
+import { drawOverlay, drawPresence } from './render/overlay';
+import { CollabSession } from './collab/session';
+import { IndexedDbStore } from './collab/store';
+import { BroadcastTransport } from './collab/transport';
+import { Replica } from './crdt/replica';
 import { groupNodes, ungroupNodes } from './tools/grouping';
 import { History } from './model/history';
 import { SceneIndex } from './spatial/scene-index';
@@ -37,8 +41,10 @@ function boot(): void {
       ? createStressDocument(Math.min(stress, 200_000))
       : createDemoDocument();
   const index = new SceneIndex(doc);
+  let collab: CollabSession | null = null;
   const history = new History(doc, 500, () => {
     updateHistoryButtons();
+    collab?.localChanged();
   });
   const camera = new Camera();
   const renderer = new Canvas2DRenderer(canvas, doc, camera);
@@ -408,6 +414,7 @@ function boot(): void {
           ? selectionFrame(doc, [tool.hover])
           : null,
     });
+    if (collab) drawPresence(ctx, camera, collab.peers.values());
   };
   const hudSuffix = (): string => {
     const n = tool.selection.size;
@@ -504,6 +511,10 @@ function boot(): void {
     }
   });
   canvas.addEventListener('pointermove', (e) => {
+    if (collab) {
+      const w = camera.screenToWorld(local(e));
+      collab.sendCursor(w.x, w.y, myColor, myName);
+    }
     const prev = pointers.get(e.pointerId);
     if (!prev) {
       if (active === 'select') tool.pointerMove(local(e), mods(e));
@@ -670,6 +681,44 @@ function boot(): void {
 
   fit();
   requestAnimationFrame(loop);
+
+  // Multi-tab collaboration and persistence (skipped for the stress scene, which would
+  // otherwise write 10k nodes to IndexedDB). Starts after the first frame so the demo
+  // document is visible immediately; a stored document replaces it once loaded.
+  let myColor = '#e17055';
+  let myName = 'Guest';
+  const params = new URLSearchParams(location.search);
+  if (!(stress > 0) && params.get('collab') !== 'off' && 'BroadcastChannel' in window) {
+    const rid = Math.random().toString(36).slice(2, 8);
+    const hue = Math.floor(Math.random() * 360);
+    myColor = `hsl(${hue} 70% 45%)`;
+    myName = `Guest ${rid.slice(0, 3)}`;
+    doc.idPrefix = `${rid}-`;
+    const session = new CollabSession({
+      doc,
+      replica: new Replica(rid),
+      transport: new BroadcastTransport(),
+      store: 'indexedDB' in window ? new IndexedDbStore() : undefined,
+      onRemoteChange: () => {
+        index.rebuild();
+        select.selection.prune(doc);
+        invalidate();
+      },
+      onPresence: invalidate,
+    });
+    session
+      .start()
+      .then(() => {
+        collab = session;
+        index.rebuild();
+        select.selection.prune(doc);
+        history.clear();
+        invalidate();
+        (window as unknown as { __frameloomCollab: unknown }).__frameloomCollab = session;
+      })
+      .catch((err: unknown) => console.warn('frameloom: collaboration disabled', err));
+    window.addEventListener('pagehide', () => session.close());
+  }
   // Hook for end-to-end tests and the benchmark harness.
   (window as unknown as { __frameloom: unknown }).__frameloom = {
     doc,

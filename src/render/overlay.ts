@@ -138,3 +138,39 @@ function drawPenAnchors(
     ctx.strokeRect(p.x - 4, p.y - 4, 8, 8);
   }
 }
+
+export interface PresenceCursor {
+  x: number;
+  y: number;
+  color: string;
+  name: string;
+}
+
+/** Other peers' pointers (world coordinates), each an arrow with a name tag. */
+export function drawPresence(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  cursors: Iterable<PresenceCursor>,
+): void {
+  ctx.save();
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  for (const c of cursors) {
+    const p = camera.worldToScreen({ x: c.x, y: c.y });
+    ctx.fillStyle = c.color;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x + 11, p.y + 4);
+    ctx.lineTo(p.x + 4, p.y + 11);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+    const w = ctx.measureText(c.name).width + 8;
+    ctx.fillRect(p.x + 10, p.y + 12, w, 16);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(c.name, p.x + 14, p.y + 20);
+  }
+  ctx.restore();
+}
