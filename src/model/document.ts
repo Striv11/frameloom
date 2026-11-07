@@ -40,6 +40,8 @@ type NodeInit<T extends SceneNode> = Partial<Omit<T, 'id' | 'type' | 'parentId' 
 export class SceneDocument {
   private readonly nodes = new Map<NodeId, SceneNode>();
   private counter = 0;
+  /** Prefix of generated ids; collaboration sets a per-tab prefix so ids never collide. */
+  idPrefix = 'n';
 
   constructor() {
     this.nodes.set(ROOT_ID, {
@@ -193,7 +195,7 @@ export class SceneDocument {
     let id: NodeId;
     do {
       this.counter += 1;
-      id = `n${this.counter}`;
+      id = `${this.idPrefix}${this.counter}`;
     } while (this.nodes.has(id));
     return id;
   }

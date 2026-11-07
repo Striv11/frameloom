@@ -110,12 +110,38 @@ export class Replica {
   ): { id: NodeId; ops: Op[] } {
     this.seq += 1;
     const id = `${this.id}:${this.seq}`;
+    return { id, ops: this.put(id, type, props, parentId, index) };
+  }
+
+  /**
+   * Writes a node with a caller-chosen id (used when mirroring a local document
+   * whose ids are already unique). If the node was tombstoned it is restored,
+   * which is what undoing a delete needs.
+   */
+  put(
+    id: NodeId,
+    type: SceneNode['type'],
+    props: Record<string, unknown>,
+    parentId: NodeId = ROOT_ID,
+    index?: number,
+  ): Op[] {
     const slot = this.slot(parentId, index, id);
-    const ops: Op[] = [this.write(id, TYPE_KEY, type), this.write(id, PARENT_KEY, slot)];
+    const ops: Op[] = [];
+    if (this.isDeleted(id)) ops.push(this.write(id, DELETED_KEY, false));
+    ops.push(this.write(id, TYPE_KEY, type), this.write(id, PARENT_KEY, slot));
     for (const [k, v] of Object.entries(props)) {
       if (!STRUCTURAL.has(k)) ops.push(this.write(id, k, v));
     }
-    return { id, ops };
+    return ops;
+  }
+
+  isDeleted(id: NodeId): boolean {
+    return this.entries.get(id)?.get(DELETED_KEY)?.value === true;
+  }
+
+  /** True once any op for a node other than the root has been merged. */
+  get isEmpty(): boolean {
+    return this.entries.size === 0;
   }
 
   set(id: NodeId, props: Record<string, unknown>): Op[] {
