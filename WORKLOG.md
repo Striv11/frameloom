@@ -120,3 +120,14 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: Chromium exists at /usr/bin/chromium; running Playwright with `launchOptions.executablePath` and `--no-sandbox` works here, so e2e is verifiable again. Three older smoke tests fail on a clean HEAD too (space-drag pan, click-drag move expecting an unsnapped position since Day 9 snapping, text-tool inspector visibility); not caused by today's work and not fixed yet.
 - Limits: remote edits don't fix up undo stacks (undoing something a peer deleted can throw), history is cleared after load, a remote change mid-drag briefly reverts the dragged node until the next pointer move, no tombstone GC, cursors don't expire.
 - Next: fix the three failing smoke tests (disable snap / pan expectations), then Day 12 components and instances.
+
+## 2026-11-08 — Day 12 (components, instances, overrides)
+
+- First fixed the three stale smoke tests from Day 11: pan and text tests started their pointer on the floating layers panel (so the canvas never got the events), and the drag test predated snapping (now disables `snapEnabled`; snapping has its own unit tests). `playwright.config.ts` accepts `PW_CHROMIUM=/usr/bin/chromium` for a system browser. All 11 e2e tests pass.
+- Added `src/model/components.ts`. Instances are real nodes (`instanceOf` on the root, `sourceId` on descendants) so renderer, R-tree, selection and the CRDT/reconcile bridge needed no changes. Content is derived: master props + `overrides`, via `syncInstances`, which runs after every `History` change and remote merge without being recorded. That makes undo-safety free: undoing a master edit re-derives the instances, and no redo history is clobbered.
+- Overrides: inspector `applyField` and the text tool wrap their patches with `withOverrides`, so editing fill/stroke/opacity/text inside an instance is one undo step that restores both value and override map. Shortcuts: Ctrl/⌘+Alt+K make, +I instantiate, +B detach, +R reset. Layers panel marks ◆ components and ◇ instances.
+- Collab: each tab derives instance children itself, so two tabs can create the same mirror with different ids; sync collapses duplicates keeping the smallest id, deterministically.
+- Tests: 9 unit tests (`tests/components.test.ts`, 203 total) and `e2e/components.spec.ts` (make, instantiate, master recolor propagates, second tab sees it).
+- Learned: with `exactOptionalPropertyTypes`, clearing optional fields in a patch needs an `unknown` cast; undefined keys compare equal to missing ones in `reconcile`.
+- Limits: no nested components, instance-internal geometry can't be overridden, no toolbar UI for components, no "go to master".
+- Next (Day 13): SVG/PNG export with golden test, command palette (Ctrl+K), shortcut sheet, WebGL2 behind a flag.
