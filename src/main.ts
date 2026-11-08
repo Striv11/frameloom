@@ -25,6 +25,13 @@ import {
   setLayerVisible,
   type DropPlace,
 } from './tools/layers';
+import {
+  createInstance,
+  detachInstance,
+  makeComponent,
+  resetOverrides,
+  syncInstances,
+} from './model/components';
 import { applyField, inspect, type FieldKey } from './tools/inspector';
 
 function $<T extends HTMLElement>(id: string): T {
@@ -43,6 +50,8 @@ function boot(): void {
   const index = new SceneIndex(doc);
   let collab: CollabSession | null = null;
   const history = new History(doc, 500, () => {
+    // Instances are derived from their masters; re-derive before mirroring to peers.
+    if (syncInstances(doc)) index.rebuild();
     updateHistoryButtons();
     collab?.localChanged();
   });
@@ -189,6 +198,11 @@ function boot(): void {
   });
 
   // --- Layers ---
+  /** Marks components (◆) and instances (◇) in the layers panel. */
+  const componentMark = (id: string): string => {
+    const n = doc.find(id);
+    return n?.component ? '◆ ' : n?.instanceOf !== undefined ? '◇ ' : '';
+  };
   const LAYER_LIMIT = 300;
   const layersEl = $('layers');
   const layerList = $('layer-list');
@@ -209,7 +223,7 @@ function boot(): void {
       shown
         .map(
           (r) =>
-            `${r.id}|${r.name}|${r.depth}|${+r.visible}${+r.locked}${+r.collapsed}${+r.expandable}${+sel.has(r.id)}`,
+            `${r.id}|${componentMark(r.id)}${r.name}|${r.depth}|${+r.visible}${+r.locked}${+r.collapsed}${+r.expandable}${+sel.has(r.id)}`,
         )
         .join('\n') + (rows.length > LAYER_LIMIT ? '+' : '');
     if (key === layersKey || layerList.querySelector('.layer-name-input')) return;
@@ -241,7 +255,7 @@ function boot(): void {
       });
       const name = document.createElement('span');
       name.className = 'layer-name';
-      name.textContent = r.name;
+      name.textContent = `${componentMark(r.id)}${r.name}`;
       const vis = mk(
         'vis',
         r.visible ? '◉' : '○',
@@ -605,6 +619,31 @@ function boot(): void {
       e.preventDefault();
       return;
     }
+    if (e.altKey && (e.metaKey || e.ctrlKey) && !e.shiftKey && active === 'select') {
+      // Components: Ctrl/⌘+Alt+K make, +I instantiate, +B detach, +R reset overrides.
+      const ids = tool.selection.ids.filter((id) => doc.has(id));
+      const first = ids[0];
+      if (first === undefined) return;
+      let done = false;
+      if (e.code === 'KeyK') for (const id of ids) done = makeComponent(doc, history, id) || done;
+      else if (e.code === 'KeyI') {
+        const made = ids.map((id) => createInstance(doc, history, id));
+        const ok = made.filter((id): id is string => id !== null);
+        if (ok.length > 0) tool.selection.replace(ok);
+        done = ok.length > 0;
+      } else if (e.code === 'KeyB')
+        for (const id of ids) done = detachInstance(doc, history, id) || done;
+      else if (e.code === 'KeyR')
+        for (const id of ids) done = resetOverrides(doc, history, id) || done;
+      else return;
+      e.preventDefault();
+      if (done) {
+        index.rebuild();
+        refreshInspector();
+        invalidate();
+      }
+      return;
+    }
     if (e.altKey && !e.metaKey && !e.ctrlKey && active === 'select' && !tool.dragging) {
       const ids = tool.selection.ids;
       const aligns: Record<string, AlignMode> = {
@@ -700,6 +739,7 @@ function boot(): void {
       transport: new BroadcastTransport(),
       store: 'indexedDB' in window ? new IndexedDbStore() : undefined,
       onRemoteChange: () => {
+        syncInstances(doc);
         index.rebuild();
         select.selection.prune(doc);
         invalidate();

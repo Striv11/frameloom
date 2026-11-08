@@ -1,4 +1,5 @@
-import type { SceneDocument } from '../model/document';
+import { withOverrides } from '../model/components';
+import type { NodePatch, SceneDocument } from '../model/document';
 import { snapshotSubtree, type History } from '../model/history';
 import { applyToPoint, invert, type Point } from '../model/matrix';
 import type { NodeId, TextNode } from '../model/types';
@@ -29,6 +30,8 @@ interface Session {
   created: boolean;
   /** Text before the session began (existing nodes only). */
   original: string;
+  /** Overrides before the session (nodes inside component instances). */
+  originalOverrides: Record<string, string | number | boolean | null>;
 }
 
 /**
@@ -67,7 +70,7 @@ export class TextTool {
     if (!inv) return null;
     const p = applyToPoint(inv, world);
     const node = this.doc.add('text', { x: p.x, y: p.y, text: '' }, parentId);
-    this.session = { id: node.id, created: true, original: '' };
+    this.session = { id: node.id, created: true, original: '', originalOverrides: {} };
     this.fit(node as TextNode);
     this.index.rebuild();
     this.onChange();
@@ -80,7 +83,12 @@ export class TextTool {
     if (!this.doc.has(id)) return false;
     const node = this.doc.get(id);
     if (node.type !== 'text') return false;
-    this.session = { id, created: false, original: node.text };
+    this.session = {
+      id,
+      created: false,
+      original: node.text,
+      originalOverrides: { ...(node.overrides ?? {}) },
+    };
     return true;
   }
 
@@ -115,8 +123,8 @@ export class TextTool {
     } else if (node.text !== s.original) {
       this.history?.record(
         'Edit text',
-        this.update(s.id, node.text, node),
-        this.update(s.id, s.original, node, true),
+        this.update(s.id, node.text, node, false, s.originalOverrides),
+        this.update(s.id, s.original, node, true, s.originalOverrides),
       );
     }
     this.onChange();
@@ -138,13 +146,22 @@ export class TextTool {
   }
 
   /** Update op that also carries the box size, so undo restores geometry too. */
-  private update(id: NodeId, text: string, node: TextNode, measureIt = false) {
-    const size = measureIt ? this.box(text, node) : node;
-    return {
-      kind: 'update' as const,
-      id,
-      patch: { text, width: size.width, height: size.height },
-    };
+  private update(
+    id: NodeId,
+    text: string,
+    node: TextNode,
+    undoing: boolean,
+    originalOverrides: NonNullable<TextNode['overrides']>,
+  ) {
+    const size = undoing ? this.box(text, node) : node;
+    const patch = { text, width: size.width, height: size.height };
+    // Text edited inside a component instance becomes a per-instance override.
+    const full = undoing
+      ? node.sourceId === undefined
+        ? patch
+        : { ...patch, overrides: originalOverrides }
+      : withOverrides(node, patch);
+    return { kind: 'update' as const, id, patch: full as NodePatch };
   }
 
   private box(text: string, node: TextNode): { width: number; height: number } {

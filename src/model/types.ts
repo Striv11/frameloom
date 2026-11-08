@@ -28,6 +28,14 @@ interface BaseNode {
   parentId: NodeId | null;
   /** Child ids in paint order (first = bottom). Empty for leaf nodes. */
   children: NodeId[];
+  /** True on a frame that is a component master. */
+  component?: boolean;
+  /** On an instance root: the master it mirrors. */
+  instanceOf?: NodeId;
+  /** On a node inside an instance: the master node it mirrors. */
+  sourceId?: NodeId;
+  /** Per-instance property overrides (see `OVERRIDABLE` in model/components). */
+  overrides?: Record<string, string | number | boolean | null>;
 }
 
 export interface FrameNode extends BaseNode {

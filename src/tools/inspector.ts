@@ -1,4 +1,5 @@
-import type { SceneDocument } from '../model/document';
+import { withOverrides } from '../model/components';
+import type { NodePatch, SceneDocument } from '../model/document';
 import type { History, Op } from '../model/history';
 import type { NodeId, SceneNode } from '../model/types';
 
@@ -119,7 +120,15 @@ export function applyField(
   const ops: Op[] = ids
     .filter((id) => doc.has(id) && isEditable(doc.get(id), key))
     .filter((id) => (doc.get(id) as unknown as Record<string, unknown>)[key] !== value)
-    .map((id) => ({ kind: 'update', id, patch: { [key]: value } }) as Op);
+    .map(
+      (id) =>
+        ({
+          kind: 'update',
+          id,
+          // Inside an instance, overridable fields are recorded as overrides too.
+          patch: withOverrides(doc.get(id), { [key]: value }) as NodePatch,
+        }) as Op,
+    );
   if (ops.length === 0) return false;
   history.apply(
     `Set ${key}`,
