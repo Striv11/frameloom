@@ -59,9 +59,10 @@ test('renders the demo document and supports zoom and space-drag pan', async ({ 
   const p0 = await pan();
   const box = (await page.locator('#canvas').boundingBox())!;
   await page.keyboard.down('Space');
-  await page.mouse.move(box.x + 200, box.y + 200);
+  // Start away from the floating layers/inspector panels so the canvas gets the events.
+  await page.mouse.move(box.x + 600, box.y + 400);
   await page.mouse.down();
-  await page.mouse.move(box.x + 260, box.y + 230, { steps: 4 });
+  await page.mouse.move(box.x + 660, box.y + 430, { steps: 4 });
   await page.mouse.up();
   await page.keyboard.up('Space');
   expect(await pan()).toBeCloseTo(p0 + 60, 0);
@@ -70,6 +71,12 @@ test('renders the demo document and supports zoom and space-drag pan', async ({ 
 
 test('click selects, drag moves, shift adds, escape clears', async ({ page }) => {
   await page.goto('/');
+  // Snapping has its own unit tests; here assert the raw drag geometry.
+  await page.evaluate(() => {
+    (
+      window as unknown as { __frameloom: { tool: { snapEnabled: boolean } } }
+    ).__frameloom.tool.snapEnabled = false;
+  });
   const cover = await node(page, 'Cover');
   // Cover is a child of the Card frame at (80, 80), so its world origin is (80, 80).
   const p = await screenOf(page, 80 + 40, 80 + 40);
@@ -274,7 +281,8 @@ test('text tool creates text in place and the inspector edits it', async ({ page
   await page.goto('./');
   await page.keyboard.press('t');
   const box = (await page.locator('#canvas').boundingBox())!;
-  await page.mouse.click(box.x + 200, box.y + 200);
+  await page.mouse.click(box.x + 600, box.y + 450);
+  await expect(page.locator('textarea')).toBeFocused();
   await page.keyboard.type('Hello');
   await page.keyboard.press('Control+Enter');
   const count = await page.evaluate(
