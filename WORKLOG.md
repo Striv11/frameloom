@@ -131,3 +131,13 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Learned: with `exactOptionalPropertyTypes`, clearing optional fields in a patch needs an `unknown` cast; undefined keys compare equal to missing ones in `reconcile`.
 - Limits: no nested components, instance-internal geometry can't be overridden, no toolbar UI for components, no "go to master".
 - Next (Day 13): SVG/PNG export with golden test, command palette (Ctrl+K), shortcut sheet, WebGL2 behind a flag.
+
+## 2026-11-09 — Day 13, part 1 (export, command palette, shortcut sheet)
+
+- Added `src/export/svg.ts`: `exportSvg` (whole document or selected nodes, padding, optional background) and `svgToPng`. Selected roots are placed by their world matrix, descendants by local matrices; selected nodes inside other selected nodes are exported once. Clipping frames use `clipPath`, and their own box (not overflowing children) defines the canvas size. Golden-file test in `tests/golden/sample.svg` (`UPDATE_GOLDEN=1` regenerates).
+- Added `src/ui/fuzzy.ts` (DP best-alignment subsequence match with word-start/consecutive bonuses), `src/ui/palette.ts` (Ctrl/⌘+K palette with highlighted matches, arrow/Enter/Esc, ARIA combobox roles; `?` shortcut sheet) and `src/ui/shortcuts.ts`. 19 commands, a ⌘K toolbar button; selection-only commands hide when nothing is selected. While an overlay is open it owns the keyboard.
+- Tests: 11 new unit tests (214 total; export + fuzzy) and `e2e/palette.spec.ts` (palette runs a command, sheet opens, exported SVG parses). Full e2e: 13 pass.
+- Learned: my first e2e query "tpn" was a poor acronym for "Tool: Pen" and legitimately ranked "Export all as PNG" first, so the matcher was right and the test wrong; whitespace in queries is ignored, so "tool pen" works.
+- Limits: text exports as one line (matches the renderer, no wrapping); PNG export is untested in a browser beyond code review (SVG path is verified); fonts in PNG rely on system fonts since SVG-in-img can't load web fonts.
+- Not done: **WebGL2 renderer behind a flag with Canvas2D fallback**, so Day 13 stays `[~]`.
+- Next: WebGL2 renderer (flag `?renderer=webgl`), then Day 14 polish, landing/onboarding, mobile layout and the 10k-shape pan benchmark.

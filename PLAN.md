@@ -18,7 +18,7 @@ Fourteen-day arc. Every milestone has acceptance criteria that can be checked by
 | 10 | CRDT core | From-scratch op-based CRDT (LWW registers per property, fractional-index ordering, tombstones); convergence property test over random interleavings of 3 replicas | [x] register-based LWW CRDT, fractional index, tombstones, cycle-safe moves, 200-seed convergence test |
 | 11 | Multi-tab collaboration and persistence | BroadcastChannel transport, presence cursors, IndexedDB persistence with load on start; Playwright two-page test sees edits both ways and survives reload | [x] BroadcastChannel sync, presence cursors, IndexedDB load/save, reconcile bridge, e2e |
 | 12 | Components, instances, overrides | Make component, instantiate, override fill/text per instance, propagate master edits; undo-safe; unit and e2e tests | [x] master/instance model, overrides (fill, text, ...), derived propagation, undo-safe, 9 unit tests + two-tab e2e |
-| 13 | Export, command palette, shortcuts, WebGL2 | SVG and PNG export (golden-file test for SVG); command palette (Ctrl+K) with fuzzy search; shortcut sheet; WebGL2 renderer behind a flag with Canvas2D fallback | [ ] |
+| 13 | Export, command palette, shortcuts, WebGL2 | SVG and PNG export (golden-file test for SVG); command palette (Ctrl+K) with fuzzy search; shortcut sheet; WebGL2 renderer behind a flag with Canvas2D fallback | [~] SVG export with golden test, PNG export, Ctrl/⌘+K fuzzy palette, shortcut sheet done; **WebGL2 renderer behind a flag still open** |
 | 14 | Polish, landing, benchmark, release | Landing section and onboarding empty state; mobile layout; benchmark script (10k shapes pan at ≥ 55 fps in headless Chromium, budgets enforced in CI); README screenshots | [ ] |
 
 ## Stretch
