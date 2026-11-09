@@ -1,7 +1,8 @@
 import './style.css';
 import { createDemoDocument, createStressDocument } from './app/demo';
 import { Camera } from './render/camera';
-import { Canvas2DRenderer, DARK, LIGHT } from './render/canvas2d';
+import { DARK, LIGHT } from './render/canvas2d';
+import { createRenderer, requestedRenderer } from './render/create-renderer';
 import { applyToPoint, type Point } from './model/matrix';
 import { drawOverlay, drawPresence } from './render/overlay';
 import { CollabSession } from './collab/session';
@@ -43,7 +44,7 @@ function $<T extends HTMLElement>(id: string): T {
 }
 
 function boot(): void {
-  const canvas = $<HTMLCanvasElement>('canvas');
+  let canvas = $<HTMLCanvasElement>('canvas');
   const stress = Number(new URLSearchParams(location.search).get('stress'));
   const doc =
     Number.isFinite(stress) && stress > 0
@@ -58,7 +59,10 @@ function boot(): void {
     collab?.localChanged();
   });
   const camera = new Camera();
-  const renderer = new Canvas2DRenderer(canvas, doc, camera);
+  const created = createRenderer(canvas, doc, camera, requestedRenderer(location.search));
+  canvas = created.canvas;
+  const renderer = created.renderer;
+  const rendererKind = created.kind;
 
   let dirty = true;
   const invalidate = (): void => {
@@ -853,6 +857,7 @@ function boot(): void {
     doc,
     camera,
     renderer,
+    rendererKind,
     index,
     tool,
     create,

@@ -454,3 +454,12 @@ kbd {
 .sheet dd {
   margin: 0;
 }
+
+/* Transparent 2D layer above the WebGL canvas (selection, handles, guides, cursors). */
+.overlay-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
