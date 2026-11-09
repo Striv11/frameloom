@@ -22,7 +22,16 @@ function sample(): SceneDocument {
   });
   doc.add(
     'rect',
-    { id: 'r1', name: 'Button', x: 16, y: 70, width: 80, height: 32, fill: '#5b4bd6', cornerRadius: 6 },
+    {
+      id: 'r1',
+      name: 'Button',
+      x: 16,
+      y: 70,
+      width: 80,
+      height: 32,
+      fill: '#5b4bd6',
+      cornerRadius: 6,
+    },
     frame.id,
   );
   doc.add(
@@ -32,28 +41,50 @@ function sample(): SceneDocument {
   );
   doc.add(
     'text',
-    { id: 't1', name: 'Title', x: 16, y: 16, text: 'Tom & "Jerry" <3', fontSize: 18, fill: '#111111' },
+    {
+      id: 't1',
+      name: 'Title',
+      x: 16,
+      y: 16,
+      text: 'Tom & "Jerry" <3',
+      fontSize: 18,
+      fill: '#111111',
+    },
     frame.id,
   );
-  doc.add(
-    'path',
-    {
-      id: 'p1',
-      name: 'Wave',
-      x: 240,
-      y: 30,
-      width: 60,
-      height: 30,
-      rotation: Math.PI / 6,
-      fill: '#00b894',
-      stroke: '#006d5b',
-      strokeWidth: 2,
-      anchors: [anchor(0, 0, 20, 0), anchor(60, 30, -20, 0)],
-      closed: false,
-    },
-  );
-  doc.add('line', { id: 'l1', name: 'Rule', x: 20, y: 150, width: 200, height: 0, stroke: '#333333', strokeWidth: 2 });
-  doc.add('rect', { id: 'h1', name: 'Hidden', x: 500, y: 500, width: 50, height: 50, visible: false });
+  doc.add('path', {
+    id: 'p1',
+    name: 'Wave',
+    x: 240,
+    y: 30,
+    width: 60,
+    height: 30,
+    rotation: Math.PI / 6,
+    fill: '#00b894',
+    stroke: '#006d5b',
+    strokeWidth: 2,
+    anchors: [anchor(0, 0, 20, 0), anchor(60, 30, -20, 0)],
+    closed: false,
+  });
+  doc.add('line', {
+    id: 'l1',
+    name: 'Rule',
+    x: 20,
+    y: 150,
+    width: 200,
+    height: 0,
+    stroke: '#333333',
+    strokeWidth: 2,
+  });
+  doc.add('rect', {
+    id: 'h1',
+    name: 'Hidden',
+    x: 500,
+    y: 500,
+    width: 50,
+    height: 50,
+    visible: false,
+  });
   return doc;
 }
 

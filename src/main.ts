@@ -33,6 +33,8 @@ import {
   syncInstances,
 } from './model/components';
 import { applyField, inspect, type FieldKey } from './tools/inspector';
+import { exportSvg, svgToPng } from './export/svg';
+import { Palette, ShortcutSheet, type Command } from './ui/palette';
 
 function $<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -477,6 +479,77 @@ function boot(): void {
     invalidate();
   }
 
+  // --- Export, command palette, shortcut sheet ---
+  const download = (blob: Blob, name: string): void => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const exportAs = (kind: 'svg' | 'png', selectionOnly: boolean): void => {
+    const ids = selectionOnly ? tool.selection.ids.filter((id) => doc.has(id)) : undefined;
+    if (ids && ids.length === 0) return;
+    const out = exportSvg(doc, { ...(ids ? { ids } : {}), padding: 16 });
+    const base = selectionOnly ? 'frameloom-selection' : 'frameloom';
+    if (kind === 'svg') download(new Blob([out.svg], { type: 'image/svg+xml' }), `${base}.svg`);
+    else
+      svgToPng(out, 2).then(
+        (blob) => download(blob, `${base}.png`),
+        (err: unknown) => console.warn('frameloom: PNG export failed', err),
+      );
+  };
+  const hasSelection = (): boolean => tool.selection.ids.some((id) => doc.has(id));
+  const toggleTheme = (): void => setTheme(document.documentElement.dataset['theme'] !== 'dark');
+  const commands: Command[] = [
+    { id: 'tool-select', title: 'Tool: Select', keys: 'V', run: () => setTool('select') },
+    { id: 'tool-rect', title: 'Tool: Rectangle', keys: 'R', run: () => setTool('rect') },
+    { id: 'tool-ellipse', title: 'Tool: Ellipse', keys: 'O', run: () => setTool('ellipse') },
+    { id: 'tool-line', title: 'Tool: Line', keys: 'L', run: () => setTool('line') },
+    { id: 'tool-pen', title: 'Tool: Pen', keys: 'P', run: () => setTool('pen') },
+    { id: 'tool-text', title: 'Tool: Text', keys: 'T', run: () => setTool('text') },
+    { id: 'undo', title: 'Undo', keys: 'Ctrl+Z', run: () => stepHistory('undo') },
+    { id: 'redo', title: 'Redo', keys: 'Ctrl+Shift+Z', run: () => stepHistory('redo') },
+    {
+      id: 'group',
+      title: 'Group selection',
+      keys: 'Ctrl+G',
+      enabled: hasSelection,
+      run: () => regroup(false),
+    },
+    {
+      id: 'ungroup',
+      title: 'Ungroup selection',
+      keys: 'Ctrl+Shift+G',
+      enabled: hasSelection,
+      run: () => regroup(true),
+    },
+    { id: 'fit', title: 'Zoom to fit', keys: '0', run: fit },
+    { id: 'zoom-100', title: 'Zoom to 100%', keys: '1', run: () => zoomBy(1 / camera.zoom) },
+    { id: 'zoom-in', title: 'Zoom in', keys: '+', run: () => zoomBy(1.25) },
+    { id: 'zoom-out', title: 'Zoom out', keys: '-', run: () => zoomBy(1 / 1.25) },
+    { id: 'theme', title: 'Toggle light/dark theme', keys: 'D', run: toggleTheme },
+    { id: 'export-svg', title: 'Export all as SVG', run: () => exportAs('svg', false) },
+    { id: 'export-png', title: 'Export all as PNG', run: () => exportAs('png', false) },
+    {
+      id: 'export-svg-sel',
+      title: 'Export selection as SVG',
+      enabled: hasSelection,
+      run: () => exportAs('svg', true),
+    },
+    {
+      id: 'export-png-sel',
+      title: 'Export selection as PNG',
+      enabled: hasSelection,
+      run: () => exportAs('png', true),
+    },
+    { id: 'shortcuts', title: 'Show keyboard shortcuts', keys: '?', run: () => sheet.open() },
+  ];
+  const palette = new Palette(document.body, () => commands);
+  const sheet = new ShortcutSheet(document.body);
+  $('palette-btn').addEventListener('click', () => palette.open());
+
   // --- Pointer input ---
   // Primary button drives the select tool. Middle button or Space+drag pans;
   // two pointers pinch-zoom (and pan).
@@ -610,6 +683,22 @@ function boot(): void {
     }
   });
   window.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      sheet.close();
+      palette.toggle();
+      return;
+    }
+    // While an overlay is open it owns the keyboard.
+    if (palette.isOpen || sheet.isOpen) return;
+    if (
+      e.key === '?' &&
+      !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
+    ) {
+      e.preventDefault();
+      sheet.open();
+      return;
+    }
     if ((e.metaKey || e.ctrlKey) && !e.altKey) {
       const k = e.key.toLowerCase();
       if (k === 'z') stepHistory(e.shiftKey ? 'redo' : 'undo');
@@ -772,6 +861,7 @@ function boot(): void {
     textTool,
     stepHistory,
     regroup,
+    exportSvg: (ids?: string[]) => exportSvg(doc, ids ? { ids } : {}),
     setTool,
     invalidate,
   };
