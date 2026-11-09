@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="287.962" height="156" viewBox="12 2 287.962 156">
+  <defs>
+    <clipPath id="clip-1"><rect width="200" height="120" rx="12"/></clipPath>
+  </defs>
+  <rect x="12" y="2" width="287.962" height="156" fill="#f1f2f4"/>
+  <g transform="matrix(1 0 0 1 20 10)" data-name="Card">
+    <rect width="200" height="120" rx="12" fill="#ffffff" stroke="#cccccc" stroke-width="1" stroke-linecap="round"/>
+    <g clip-path="url(#clip-1)">
+      <g transform="matrix(1 0 0 1 16 70)" data-name="Button">
+        <rect width="80" height="32" rx="6" fill="#5b4bd6"/>
+      </g>
+      <g transform="matrix(1 0 0 1 150 20)" opacity="0.5" data-name="Dot">
+        <ellipse cx="15" cy="15" rx="15" ry="15" fill="#e17055"/>
+      </g>
+      <g transform="matrix(1 0 0 1 16 16)" data-name="Title">
+        <text font-family="Inter, system-ui, sans-serif" font-size="18" dominant-baseline="text-before-edge" fill="#111111" xml:space="preserve">Tom &amp; &quot;Jerry&quot; &lt;3</text>
+      </g>
+    </g>
+  </g>
+  <g transform="matrix(0.866 0.5 -0.5 0.866 240 30)" data-name="Wave">
+    <path d="M0 0C20 0 80 30 60 30" fill="none" stroke="#006d5b" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g transform="matrix(1 0 0 1 20 150)" data-name="Rule">
+    <line x1="0" y1="0" x2="200" y2="0" fill="none" stroke="#333333" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>
