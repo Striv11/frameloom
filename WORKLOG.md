@@ -141,3 +141,10 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Limits: text exports as one line (matches the renderer, no wrapping); PNG export is untested in a browser beyond code review (SVG path is verified); fonts in PNG rely on system fonts since SVG-in-img can't load web fonts.
 - Not done: **WebGL2 renderer behind a flag with Canvas2D fallback**, so Day 13 stays `[~]`.
 - Next: WebGL2 renderer (flag `?renderer=webgl`), then Day 14 polish, landing/onboarding, mobile layout and the 10k-shape pan benchmark.
+
+## 2026-11-10 — Day 13 close-out and Day 14, part 1 (benchmark)
+
+- The WebGL2 renderer landed on 11-09 but PLAN/WORKLOG were never updated; ticked Day 13 now (tessellation module, batched draw, stencil clipping, text textures; `e2e/webgl.spec.ts` passes).
+- Added `e2e/benchmark.spec.ts`: loads `?stress=10000`, pans the camera 120 times and times `render()`, asserting median ≤ 1000/55 ms for Canvas2D and WebGL. Measured locally in headless Chromium: median ~7.5 ms (Canvas2D) and ~7.1 ms (WebGL); p95 20–38 ms, so I assert the median only, since p95 is noisy on shared runners.
+- Learned: this measures CPU cost of a frame, not vsync-bound rAF cadence, which headless Chromium caps and makes a poor budget signal.
+- Next: onboarding empty state and landing section, mobile layout, fresh README screenshots, then release.
