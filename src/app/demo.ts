@@ -1,4 +1,5 @@
 import { SceneDocument } from '../model/document';
+import { snapshotSubtree, type Op } from '../model/history';
 
 const PALETTE = ['#6c5ce7', '#00b894', '#fdcb6e', '#e17055', '#0984e3', '#e84393', '#2d3436'];
 
@@ -15,8 +16,11 @@ export function prng(seed: number): () => number {
 }
 
 export function createDemoDocument(): SceneDocument {
-  const doc = new SceneDocument();
+  return populateDemo(new SceneDocument());
+}
 
+/** Adds the sample scene to `doc` (which may be empty or in use) and returns it. */
+export function populateDemo(doc: SceneDocument): SceneDocument {
   const card = doc.add('frame', {
     name: 'Card',
     x: 80,
@@ -107,4 +111,16 @@ export function createStressDocument(count: number, seed = 1): SceneDocument {
     });
   }
   return doc;
+}
+
+/**
+ * The sample scene as one undoable `add` op for a live document. Ids get a unique prefix
+ * so loading it repeatedly, or in several collaborating tabs, never collides.
+ */
+export function sampleOp(doc: SceneDocument, tag: string): Op {
+  const sample = new SceneDocument();
+  sample.idPrefix = `${doc.idPrefix}-${tag}`;
+  populateDemo(sample);
+  const ops = sample.root.children.map((id) => snapshotSubtree(sample, id));
+  return { kind: 'batch', ops };
 }

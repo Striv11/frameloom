@@ -158,6 +158,13 @@ kbd {
   border: 1px solid #d64545;
 }
 @media (max-width: 520px) {
+  .topbar {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .topbar > * {
+    flex-shrink: 0;
+  }
   .brand span {
     display: none;
   }
@@ -462,4 +469,45 @@ kbd {
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+/* Onboarding empty state */
+.onboarding {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(440px, calc(100% - 2 * var(--space-4)));
+  height: fit-content;
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-align: center;
+  z-index: 5;
+}
+.onboarding[hidden] {
+  display: none;
+}
+.onboarding h2 {
+  margin: 0 0 var(--space-2);
+}
+.onboarding p {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+.onboarding-tools,
+.onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.onboarding .btn {
+  border: 1px solid var(--border);
+}
+.onboarding .btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }

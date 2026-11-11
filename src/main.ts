@@ -1,5 +1,6 @@
 import './style.css';
-import { createDemoDocument, createStressDocument } from './app/demo';
+import { createDemoDocument, createStressDocument, sampleOp } from './app/demo';
+import { Onboarding, isDocumentEmpty } from './ui/onboarding';
 import { Camera } from './render/camera';
 import { DARK, LIGHT } from './render/canvas2d';
 import { createRenderer, requestedRenderer } from './render/create-renderer';
@@ -56,6 +57,7 @@ function boot(): void {
     // Instances are derived from their masters; re-derive before mirroring to peers.
     if (syncInstances(doc)) index.rebuild();
     updateHistoryButtons();
+    invalidate();
     collab?.localChanged();
   });
   const camera = new Camera();
@@ -449,6 +451,7 @@ function boot(): void {
       refreshInspector();
       refreshLayers();
       placeEditor();
+      onboarding.update(isDocumentEmpty(doc));
       const t0 = performance.now();
       renderer.resize();
       renderer.render();
@@ -552,6 +555,20 @@ function boot(): void {
   ];
   const palette = new Palette(document.body, () => commands);
   const sheet = new ShortcutSheet(document.body);
+  let sampleLoads = 0;
+  const onboarding = new Onboarding($('canvas').parentElement ?? document.body, {
+    loadSample: () => {
+      history.apply('Load sample', sampleOp(doc, `s${(sampleLoads += 1)}`));
+      index.rebuild();
+      fit();
+      $('canvas').focus();
+    },
+    chooseTool: (t) => {
+      setTool(t);
+      $('canvas').focus();
+    },
+    showShortcuts: () => sheet.open(),
+  });
   $('palette-btn').addEventListener('click', () => palette.open());
 
   // --- Pointer input ---

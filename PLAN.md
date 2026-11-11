@@ -19,7 +19,7 @@ Fourteen-day arc. Every milestone has acceptance criteria that can be checked by
 | 11 | Multi-tab collaboration and persistence | BroadcastChannel transport, presence cursors, IndexedDB persistence with load on start; Playwright two-page test sees edits both ways and survives reload | [x] BroadcastChannel sync, presence cursors, IndexedDB load/save, reconcile bridge, e2e |
 | 12 | Components, instances, overrides | Make component, instantiate, override fill/text per instance, propagate master edits; undo-safe; unit and e2e tests | [x] master/instance model, overrides (fill, text, ...), derived propagation, undo-safe, 9 unit tests + two-tab e2e |
 | 13 | Export, command palette, shortcuts, WebGL2 | SVG and PNG export (golden-file test for SVG); command palette (Ctrl+K) with fuzzy search; shortcut sheet; WebGL2 renderer behind a flag with Canvas2D fallback | [x] SVG export with golden test, PNG export, Ctrl/⌘+K fuzzy palette, shortcut sheet, WebGL2 renderer behind `?renderer=webgl` with Canvas2D fallback |
-| 14 | Polish, landing, benchmark, release | Landing section and onboarding empty state; mobile layout; benchmark script (10k shapes pan at ≥ 55 fps in headless Chromium, budgets enforced in CI); README screenshots | [~] pan benchmark enforced in e2e (`e2e/benchmark.spec.ts`); landing/onboarding, mobile layout still open |
+| 14 | Polish, landing, benchmark, release | Landing section and onboarding empty state; mobile layout; benchmark script (10k shapes pan at ≥ 55 fps in headless Chromium, budgets enforced in CI); README screenshots | [~] pan benchmark enforced in e2e (`e2e/benchmark.spec.ts`); onboarding empty state and narrow-screen toolbar done; landing section and README screenshots still open |
 
 ## Stretch
 

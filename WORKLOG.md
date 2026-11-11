@@ -148,3 +148,12 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Added `e2e/benchmark.spec.ts`: loads `?stress=10000`, pans the camera 120 times and times `render()`, asserting median ≤ 1000/55 ms for Canvas2D and WebGL. Measured locally in headless Chromium: median ~7.5 ms (Canvas2D) and ~7.1 ms (WebGL); p95 20–38 ms, so I assert the median only, since p95 is noisy on shared runners.
 - Learned: this measures CPU cost of a frame, not vsync-bound rAF cadence, which headless Chromium caps and makes a poor budget signal.
 - Next: onboarding empty state and landing section, mobile layout, fresh README screenshots, then release.
+
+## 2026-11-11 — Day 14, part 2 (onboarding empty state, mobile toolbar)
+
+- Added `src/ui/onboarding.ts`: a "Getting started" card shown whenever the document root has no children, with tool buttons (R/O/P/T), "Load sample document" and the shortcut sheet. `sampleOp` (in `src/app/demo.ts`) turns the demo scene into one batch `add` op with a unique id prefix, so loading it is a single undo step and works repeatedly or across collaborating tabs. `createDemoDocument` now shares `populateDemo`.
+- Fixed a latent issue: `History`'s change callback now invalidates the canvas, so UI that depends on document state (the card) updates for any mutation, not only those from tools.
+- Mobile: at ≤520px the toolbar scrolls horizontally instead of overflowing the page (e2e asserts no horizontal overflow at 375px).
+- Tests: 2 unit tests (`tests/onboarding.test.ts`, 229 total) and `e2e/onboarding.spec.ts` (3 tests; full e2e 20 pass).
+- Learned: demo root has 4 children and `doc.size` excludes the root; my first test assumed otherwise.
+- Next: landing section, README screenshots, then release notes.
