@@ -1,3 +1,4 @@
+/* global process */
 // Regenerates docs/screenshot-{light,dark}.png from a running preview server.
 // Usage: npm run build && npx vite preview --port 4173 & PW_CHROMIUM=/usr/bin/chromium node scripts/screenshots.mjs
 import { chromium } from '@playwright/test';
