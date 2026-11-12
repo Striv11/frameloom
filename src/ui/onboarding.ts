@@ -32,6 +32,11 @@ export class Onboarding {
         <button class="btn" data-tool="pen">✒ Pen <kbd>P</kbd></button>
         <button class="btn" data-tool="text">T Text <kbd>T</kbd></button>
       </div>
+      <ul class="onboarding-features" aria-label="Highlights">
+        <li><strong>Private</strong> No server or account; your document stays in this browser.</li>
+        <li><strong>Live</strong> Open a second tab and edit together, conflict-free.</li>
+        <li><strong>Fast</strong> Spatial index and WebGL2 keep 10,000 shapes smooth.</li>
+      </ul>
       <div class="onboarding-actions">
         <button class="btn primary" data-action="sample">Load sample document</button>
         <button class="btn" data-action="shortcuts">Keyboard shortcuts <kbd>?</kbd></button>

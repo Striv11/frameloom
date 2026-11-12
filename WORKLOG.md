@@ -157,3 +157,10 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Tests: 2 unit tests (`tests/onboarding.test.ts`, 229 total) and `e2e/onboarding.spec.ts` (3 tests; full e2e 20 pass).
 - Learned: demo root has 4 children and `doc.size` excludes the root; my first test assumed otherwise.
 - Next: landing section, README screenshots, then release notes.
+
+## 2026-11-12 — Day 14, part 3 (landing highlights, screenshots) — plan complete
+
+- The onboarding card doubles as the landing section: three highlights (private, live multi-tab, fast) under the tool buttons. Covered by a new e2e test (21 e2e pass).
+- Added `scripts/screenshots.mjs` to regenerate `docs/screenshot-{light,dark}.png` from a preview server, and refreshed both images.
+- Learned: `pkill -f "vite preview"` from the same shell kills the shell if its command line matches; stop servers by job instead.
+- Day 14 and the whole 14-day plan are ticked. Next: stretch items (release notes, component UI, undo safety against remote deletes).

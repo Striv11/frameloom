@@ -51,3 +51,14 @@ test('mobile viewport keeps toolbar usable without horizontal overflow', async (
   expect(overflow).toBe(false);
   await expect(page.locator('#tool-rect')).toBeVisible();
 });
+
+test('empty state explains the product with highlights', async ({ page }) => {
+  await page.goto('/?collab=off');
+  await page.evaluate(() => {
+    const h = (window as unknown as { __frameloom: Hook }).__frameloom;
+    for (const id of [...h.doc.root.children]) h.history.apply('Delete', { kind: 'remove', id });
+  });
+  const list = page.getByRole('list', { name: 'Highlights' });
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+  await expect(list).toContainText('No server or account');
+});
