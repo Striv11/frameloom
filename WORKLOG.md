@@ -164,3 +164,10 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Added `scripts/screenshots.mjs` to regenerate `docs/screenshot-{light,dark}.png` from a preview server, and refreshed both images.
 - Learned: `pkill -f "vite preview"` from the same shell kills the shell if its command line matches; stop servers by job instead.
 - Day 14 and the whole 14-day plan are ticked. Next: stretch items (release notes, component UI, undo safety against remote deletes).
+
+## 2026-11-13 — Stretch: go to master
+
+- Added `findMaster(doc, id)` in `src/model/components.ts` (works from an instance root or any node inside it; null for plain nodes, detached instances or a missing master). `Ctrl/⌘+Alt+M` and the palette command "Go to master component" select the master and fit it in view; the command is hidden unless the selection contains an instance. Shortcut sheet and README updated.
+- Tests: 2 new unit tests (231 total).
+- Not verified in a browser (no e2e added); the camera/selection wiring is small and reuses `camera.fit` and `selection.replace`.
+- Next: release notes / v1.0 tag, remote-edit-safe undo stacks.

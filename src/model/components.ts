@@ -115,6 +115,24 @@ export function isInstancePart(doc: SceneDocument, id: NodeId): boolean {
   return n !== undefined && isInstanceNode(n);
 }
 
+/**
+ * The master frame behind `id` when `id` is an instance root or a node inside one.
+ * Returns `null` for ordinary nodes or when the master no longer exists.
+ */
+export function findMaster(doc: SceneDocument, id: NodeId): NodeId | null {
+  let node = doc.find(id);
+  while (
+    node &&
+    node.instanceOf === undefined &&
+    node.sourceId !== undefined &&
+    node.parentId !== null
+  )
+    node = doc.find(node.parentId);
+  if (!node || node.instanceOf === undefined) return null;
+  const master = doc.find(node.instanceOf);
+  return master?.component ? master.id : null;
+}
+
 /** Drops the link to the master: the instance becomes ordinary nodes. One undo step. */
 export function detachInstance(doc: SceneDocument, history: History, id: NodeId): boolean {
   let root = doc.find(id);

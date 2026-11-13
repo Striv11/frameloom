@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createInstance,
   detachInstance,
+  findMaster,
   makeComponent,
   resetOverrides,
   syncInstances,
@@ -148,5 +149,29 @@ describe('components', () => {
     syncInstances(doc);
     expect(kids(doc, inst).filter((n) => n.sourceId === bg.id)).toHaveLength(1);
     expect(doc.has('zzz')).toBe(false);
+  });
+});
+
+describe('findMaster', () => {
+  it('resolves the master from an instance root or any part of it', () => {
+    const { doc, history, master, bg } = setup();
+    makeComponent(doc, history, master.id);
+    const inst = createInstance(doc, history, master.id)!;
+    const [part] = kids(doc, inst);
+    expect(findMaster(doc, inst)).toBe(master.id);
+    expect(findMaster(doc, part!.id)).toBe(master.id);
+    expect(findMaster(doc, bg.id)).toBeNull();
+    expect(findMaster(doc, master.id)).toBeNull();
+  });
+
+  it('returns null after detaching or when the master is deleted', () => {
+    const { doc, history, master } = setup();
+    makeComponent(doc, history, master.id);
+    const a = createInstance(doc, history, master.id)!;
+    const b = createInstance(doc, history, master.id)!;
+    detachInstance(doc, history, a);
+    expect(findMaster(doc, a)).toBeNull();
+    doc.remove(master.id);
+    expect(findMaster(doc, b)).toBeNull();
   });
 });

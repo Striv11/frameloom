@@ -30,6 +30,7 @@ import {
 import {
   createInstance,
   detachInstance,
+  findMaster,
   makeComponent,
   resetOverrides,
   syncInstances,
@@ -473,6 +474,20 @@ function boot(): void {
     if (bounds) camera.fit(bounds, w, h);
     invalidate();
   };
+  /** Selects the master of the first selected instance and brings it into view. */
+  const goToMaster = (): boolean => {
+    for (const id of tool.selection.ids) {
+      const mid = findMaster(doc, id);
+      if (mid === null) continue;
+      tool.selection.replace([mid]);
+      const { w, h } = viewSize();
+      camera.fit(doc.worldBounds(mid), w, h, 120);
+      refreshInspector();
+      invalidate();
+      return true;
+    }
+    return false;
+  };
   const center = (): Point => ({ x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 });
   const zoomBy = (f: number, at: Point = center()): void => {
     camera.zoomAt(at, f);
@@ -531,6 +546,13 @@ function boot(): void {
       keys: 'Ctrl+Shift+G',
       enabled: hasSelection,
       run: () => regroup(true),
+    },
+    {
+      id: 'go-to-master',
+      title: 'Go to master component',
+      keys: 'Ctrl+Alt+M',
+      enabled: () => tool.selection.ids.some((id) => findMaster(doc, id) !== null),
+      run: () => void goToMaster(),
     },
     { id: 'fit', title: 'Zoom to fit', keys: '0', run: fit },
     { id: 'zoom-100', title: 'Zoom to 100%', keys: '1', run: () => zoomBy(1 / camera.zoom) },
@@ -730,12 +752,17 @@ function boot(): void {
       return;
     }
     if (e.altKey && (e.metaKey || e.ctrlKey) && !e.shiftKey && active === 'select') {
-      // Components: Ctrl/⌘+Alt+K make, +I instantiate, +B detach, +R reset overrides.
+      // Components: Ctrl/⌘+Alt+K make, +I instantiate, +B detach, +R reset overrides, +M go to master.
       const ids = tool.selection.ids.filter((id) => doc.has(id));
       const first = ids[0];
       if (first === undefined) return;
       let done = false;
-      if (e.code === 'KeyK') for (const id of ids) done = makeComponent(doc, history, id) || done;
+      if (e.code === 'KeyM') {
+        e.preventDefault();
+        goToMaster();
+        return;
+      } else if (e.code === 'KeyK')
+        for (const id of ids) done = makeComponent(doc, history, id) || done;
       else if (e.code === 'KeyI') {
         const made = ids.map((id) => createInstance(doc, history, id));
         const ok = made.filter((id): id is string => id !== null);

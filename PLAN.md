@@ -23,6 +23,7 @@ Fourteen-day arc. Every milestone has acceptance criteria that can be checked by
 
 ## Stretch
 
-- Release notes / v1.0 tag; component UI (go to master); remote-edit-safe undo stacks.
+- [x] Component UI: go to master (`Ctrl/⌘+Alt+M`, palette).
+- Release notes / v1.0 tag; remote-edit-safe undo stacks.
 
 - Boolean operations on paths, auto-layout frames, comments, version history snapshots.

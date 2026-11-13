@@ -45,6 +45,7 @@ export const SHORTCUTS: readonly ShortcutSection[] = [
       [`${MOD}+Alt+I`, 'Create instance'],
       [`${MOD}+Alt+R`, 'Reset overrides'],
       [`${MOD}+Alt+B`, 'Detach instance'],
+      [`${MOD}+Alt+M`, 'Go to master'],
     ],
   },
   {
