@@ -171,3 +171,12 @@ Newest entries at the bottom. Each entry records what actually changed, what was
 - Tests: 2 new unit tests (231 total).
 - Not verified in a browser (no e2e added); the camera/selection wiring is small and reuses `camera.fit` and `selection.replace`.
 - Next: release notes / v1.0 tag, remote-edit-safe undo stacks.
+
+## 2026-11-14 — Stretch: remote-edit-safe undo/redo
+
+- Problem: with collaboration, undoing an edit to a node a peer had deleted (or re-adding a child of a deleted frame) threw from `SceneDocument`, leaving undo broken mid-batch.
+- Added `applyOpTolerant` in `src/model/history.ts`: applies each leaf step and skips those that no longer fit. `History.undo/redo` now use it, drop entries where nothing applies and continue to the next, so one key press always does something visible or returns false. Partially applicable batches apply their valid parts.
+- Tests: 3 new unit tests (234 total) covering skip-and-continue, nothing-applies, and partial batches with a deleted parent.
+- Learned: since entries keep their original undo/redo ops, tolerant application doesn't need inverses, which kept this small.
+- Limits: no e2e for the two-tab case; undo of a property a peer has since changed still overwrites their value (LWW), by design.
+- Next: release notes / v1.0 tag; e2e for go-to-master.

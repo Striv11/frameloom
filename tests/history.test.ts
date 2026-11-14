@@ -271,3 +271,50 @@ describe('tools record history', () => {
     expect(history.canUndo).toBe(false);
   });
 });
+
+describe('undo/redo after remote edits', () => {
+  it('skips an entry whose node was deleted remotely and undoes the next one', () => {
+    const doc = new SceneDocument();
+    const history = new History(doc);
+    const a = doc.add('rect', { x: 0, y: 0 });
+    const b = doc.add('rect', { x: 5, y: 5 });
+    history.apply('move a', { kind: 'update', id: a.id, patch: { x: 50 } });
+    history.apply('move b', { kind: 'update', id: b.id, patch: { x: 60 } });
+    doc.remove(b.id); // a peer deleted b
+    expect(history.undo()).toBe(true); // "move b" is stale, so this undoes "move a"
+    expect(doc.get(a.id).x).toBe(0);
+    expect(history.canUndo).toBe(false);
+    expect(history.canRedo).toBe(true); // the stale entry is not offered for redo
+    expect(history.redo()).toBe(true);
+    expect(doc.get(a.id).x).toBe(50);
+  });
+
+  it('returns false instead of throwing when nothing applies', () => {
+    const doc = new SceneDocument();
+    const history = new History(doc);
+    const a = doc.add('rect', {});
+    history.apply('move', { kind: 'update', id: a.id, patch: { x: 9 } });
+    doc.remove(a.id);
+    expect(history.undo()).toBe(false);
+    expect(history.canUndo).toBe(false);
+  });
+
+  it('undoing a delete is skipped when the parent frame is gone, and partial batches apply', () => {
+    const doc = new SceneDocument();
+    const history = new History(doc);
+    const f = doc.add('frame', {});
+    const r = doc.add('rect', {}, f.id);
+    const s = doc.add('rect', {});
+    history.apply('delete both', {
+      kind: 'batch',
+      ops: [
+        { kind: 'remove', id: r.id },
+        { kind: 'remove', id: s.id },
+      ],
+    });
+    doc.remove(f.id);
+    expect(history.undo()).toBe(true);
+    expect(doc.has(s.id)).toBe(true);
+    expect(doc.has(r.id)).toBe(false);
+  });
+});

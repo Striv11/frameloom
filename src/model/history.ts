@@ -68,6 +68,40 @@ export function applyOp(doc: SceneDocument, op: Op): Op {
   }
 }
 
+/**
+ * Like `applyOp`, but skips any step that no longer fits the document (the node
+ * was deleted by a remote peer, its new parent is gone, a move would form a
+ * cycle, ...) instead of throwing. Returns how many leaf steps took effect.
+ * Used by undo/redo so a collaborator's edits can't break or corrupt them.
+ */
+export function applyOpTolerant(doc: SceneDocument, op: Op): number {
+  if (op.kind === 'batch') {
+    let n = 0;
+    for (const o of op.ops) n += applyOpTolerant(doc, o);
+    return n;
+  }
+  if (op.kind === 'add') {
+    let n = 0;
+    for (const node of op.nodes) {
+      const { index, type, parentId, ...init } = node;
+      if (doc.has(node.id)) continue;
+      try {
+        doc.add(type, init as never, parentId ?? ROOT_ID, index);
+        n++;
+      } catch {
+        // parent missing or no longer a container
+      }
+    }
+    return n;
+  }
+  try {
+    applyOp(doc, op);
+    return 1;
+  } catch {
+    return 0;
+  }
+}
+
 interface Entry {
   label: string;
   redo: Op;
@@ -117,24 +151,42 @@ export class History {
     this.push({ label, redo, undo, key });
   }
 
+  /**
+   * Steps over entries a remote edit made impossible (nothing left to change),
+   * dropping them, until one takes effect. Returns false if none did.
+   */
   undo(): boolean {
-    const entry = this.undoStack.pop();
-    if (!entry) return false;
-    applyOp(this.doc, entry.undo);
-    this.redoStack.push(entry);
+    let did = false;
+    while (!did) {
+      const entry = this.undoStack.pop();
+      if (!entry) break;
+      if (applyOpTolerant(this.doc, entry.undo) > 0) {
+        this.redoStack.push(entry);
+        did = true;
+      }
+    }
     this.sealed = true;
     this.onChange();
-    return true;
+    return did;
   }
 
+  /**
+   * Steps over entries a remote edit made impossible (nothing left to change),
+   * dropping them, until one takes effect. Returns false if none did.
+   */
   redo(): boolean {
-    const entry = this.redoStack.pop();
-    if (!entry) return false;
-    applyOp(this.doc, entry.redo);
-    this.undoStack.push(entry);
+    let did = false;
+    while (!did) {
+      const entry = this.redoStack.pop();
+      if (!entry) break;
+      if (applyOpTolerant(this.doc, entry.redo) > 0) {
+        this.undoStack.push(entry);
+        did = true;
+      }
+    }
     this.sealed = true;
     this.onChange();
-    return true;
+    return did;
   }
 
   clear(): void {
